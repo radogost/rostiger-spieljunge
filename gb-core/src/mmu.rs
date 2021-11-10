@@ -1,22 +1,39 @@
+use std::cell::RefCell;
+use std::rc::Rc;
+
+use crate::ppu::Ppu;
+
 const MEMORY_SIZE: usize = 0x10000;
 
 pub(crate) struct Mmu {
     memory: [u8; MEMORY_SIZE],
+    ppu: Rc<RefCell<Ppu>>,
 }
 
 impl Mmu {
-    pub fn new() -> Self {
+    pub fn new(ppu: Rc<RefCell<Ppu>>) -> Self {
         Self {
             memory: [0; MEMORY_SIZE],
+            ppu,
         }
     }
 
     pub fn read_byte(&self, addr: u16) -> u8 {
-        self.memory[addr as usize]
+        match addr {
+            0x8000..=0x9fff => self.ppu.borrow().read_byte(addr),
+            0xff40..=0xff4b => self.ppu.borrow().read_byte(addr),
+            0xfe00..=0xfe9f => self.ppu.borrow().read_byte(addr),
+            _ => self.memory[addr as usize],
+        }
     }
 
     pub fn write_byte(&mut self, addr: u16, value: u8) {
-        self.memory[addr as usize] = value;
+        match addr {
+            0x8000..=0x9fff => self.ppu.borrow_mut().write_byte(addr, value),
+            0xff40..=0xff4b => self.ppu.borrow_mut().write_byte(addr, value),
+            0xfe00..=0xfe9f => self.ppu.borrow_mut().write_byte(addr, value),
+            _ => self.memory[addr as usize] = value,
+        }
     }
 
     pub fn read_word(&self, addr: u16) -> u16 {
