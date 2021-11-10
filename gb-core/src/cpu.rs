@@ -1,3 +1,6 @@
+use std::cell::RefCell;
+use std::rc::Rc;
+
 use log::{error, trace};
 
 use crate::alu;
@@ -6,38 +9,38 @@ use crate::registers::Registers;
 
 pub(crate) struct Cpu {
     registers: Registers,
-    mmu: Mmu,
+    mmu: Rc<RefCell<Mmu>>,
 }
 
 impl Cpu {
-    pub fn new() -> Self {
+    pub fn new(mmu: Rc<RefCell<Mmu>>) -> Self {
         Cpu {
             registers: Registers::new(),
-            mmu: Mmu::new(),
+            mmu,
         }
     }
 
     fn fetch_byte(&mut self) -> u8 {
         let pc = self.registers.pc();
         self.registers.inc_pc(1);
-        self.mmu.read_byte(pc)
+        self.mmu.borrow().read_byte(pc)
     }
 
     fn fetch_word(&mut self) -> u16 {
         let pc = self.registers.pc();
         self.registers.inc_pc(2);
-        self.mmu.read_word(pc)
+        self.mmu.borrow().read_word(pc)
     }
 
     fn push(&mut self, value: u16) {
         let sp = self.registers.sp() - 2;
-        self.mmu.write_word(sp, value);
+        self.mmu.borrow_mut().write_word(sp, value);
         self.registers.set_sp(sp);
     }
 
     fn pop(&mut self) -> u16 {
         let sp = self.registers.sp();
-        let value = self.mmu.read_word(sp);
+        let value = self.mmu.borrow().read_word(sp);
         self.registers.set_sp(sp + 2);
         value
     }
@@ -581,7 +584,7 @@ impl Cpu {
 
         let val = self.registers.a();
         let addr = self.registers.bc();
-        self.mmu.write_byte(addr, val);
+        self.mmu.borrow_mut().write_byte(addr, val);
 
         8
     }
@@ -654,7 +657,7 @@ impl Cpu {
 
         let addr = self.fetch_word();
         let sp = self.registers.sp();
-        self.mmu.write_word(addr, sp);
+        self.mmu.borrow_mut().write_word(addr, sp);
 
         20
     }
@@ -680,7 +683,7 @@ impl Cpu {
         trace!("LD A,(BC)");
 
         let addr = self.registers.bc();
-        let val = self.mmu.read_byte(addr);
+        let val = self.mmu.borrow().read_byte(addr);
         self.registers.set_a(val);
 
         8
@@ -772,7 +775,7 @@ impl Cpu {
 
         let val = self.registers.a();
         let addr = self.registers.de();
-        self.mmu.write_byte(addr, val);
+        self.mmu.borrow_mut().write_byte(addr, val);
 
         8
     }
@@ -871,7 +874,7 @@ impl Cpu {
         trace!("LD A,(DE)");
 
         let addr = self.registers.de();
-        let val = self.mmu.read_byte(addr);
+        let val = self.mmu.borrow().read_byte(addr);
         self.registers.set_a(val);
 
         8
@@ -970,7 +973,7 @@ impl Cpu {
 
         let val = self.registers.a();
         let addr = self.registers.hl();
-        self.mmu.write_byte(addr, val);
+        self.mmu.borrow_mut().write_byte(addr, val);
 
         let hl = addr.wrapping_add(1);
         self.registers.set_hl(hl);
@@ -1097,7 +1100,7 @@ impl Cpu {
         let addr = self.registers.hl();
         let hl = self.registers.hl().wrapping_add(1);
         self.registers.set_hl(hl);
-        let val = self.mmu.read_byte(addr);
+        let val = self.mmu.borrow().read_byte(addr);
         self.registers.set_a(val);
 
         8
@@ -1191,7 +1194,7 @@ impl Cpu {
 
         let val = self.registers.a();
         let addr = self.registers.hl();
-        self.mmu.write_byte(addr, val);
+        self.mmu.borrow_mut().write_byte(addr, val);
 
         let hl = self.registers.hl().wrapping_sub(1);
         self.registers.set_hl(hl);
@@ -1214,9 +1217,9 @@ impl Cpu {
         trace!("INC (HL)");
 
         let addr = self.registers.hl();
-        let val = self.mmu.read_byte(addr).wrapping_add(1);
+        let val = self.mmu.borrow().read_byte(addr).wrapping_add(1);
 
-        self.mmu.write_byte(addr, val);
+        self.mmu.borrow_mut().write_byte(addr, val);
         self.registers.set_half_carry_flag(val == 0x10);
         self.registers.set_zero_flag(val == 0);
         self.registers.set_negative_flag(false);
@@ -1229,7 +1232,7 @@ impl Cpu {
         trace!("DEC (HL)");
 
         let addr = self.registers.hl();
-        let val = self.mmu.read_byte(addr).wrapping_sub(1);
+        let val = self.mmu.borrow().read_byte(addr).wrapping_sub(1);
 
         self.registers.set_d(val);
         self.registers.set_half_carry_flag(val == 0xf);
@@ -1245,7 +1248,7 @@ impl Cpu {
 
         let val = self.fetch_byte();
         let addr = self.registers.hl();
-        self.mmu.write_byte(addr, val);
+        self.mmu.borrow_mut().write_byte(addr, val);
 
         12
     }
@@ -1297,7 +1300,7 @@ impl Cpu {
         let addr = self.registers.hl();
         let hl = self.registers.hl().wrapping_sub(1);
         self.registers.set_hl(hl);
-        let val = self.mmu.read_byte(addr);
+        let val = self.mmu.borrow().read_byte(addr);
         self.registers.set_a(val);
 
         8
@@ -1426,7 +1429,7 @@ impl Cpu {
         trace!("LD B,(HL)");
 
         let addr = self.registers.hl();
-        let val = self.mmu.read_byte(addr);
+        let val = self.mmu.borrow().read_byte(addr);
         self.registers.set_b(val);
 
         8
@@ -1507,7 +1510,7 @@ impl Cpu {
         trace!("LD C,(HL)");
 
         let addr = self.registers.hl();
-        let val = self.mmu.read_byte(addr);
+        let val = self.mmu.borrow().read_byte(addr);
         self.registers.set_c(val);
 
         8
@@ -1588,7 +1591,7 @@ impl Cpu {
         trace!("LD D,(HL)");
 
         let addr = self.registers.hl();
-        let val = self.mmu.read_byte(addr);
+        let val = self.mmu.borrow().read_byte(addr);
         self.registers.set_d(val);
 
         8
@@ -1669,7 +1672,7 @@ impl Cpu {
         trace!("LD E,(HL)");
 
         let addr = self.registers.hl();
-        let val = self.mmu.read_byte(addr);
+        let val = self.mmu.borrow().read_byte(addr);
         self.registers.set_e(val);
 
         8
@@ -1750,7 +1753,7 @@ impl Cpu {
         trace!("LD H,(HL)");
 
         let addr = self.registers.hl();
-        let val = self.mmu.read_byte(addr);
+        let val = self.mmu.borrow().read_byte(addr);
         self.registers.set_h(val);
 
         8
@@ -1831,7 +1834,7 @@ impl Cpu {
         trace!("LD L,(HL)");
 
         let addr = self.registers.hl();
-        let val = self.mmu.read_byte(addr);
+        let val = self.mmu.borrow().read_byte(addr);
         self.registers.set_l(val);
 
         8
@@ -1853,7 +1856,7 @@ impl Cpu {
 
         let val = self.registers.b();
         let addr = self.registers.hl();
-        self.mmu.write_byte(addr, val);
+        self.mmu.borrow_mut().write_byte(addr, val);
 
         8
     }
@@ -1864,7 +1867,7 @@ impl Cpu {
 
         let val = self.registers.c();
         let addr = self.registers.hl();
-        self.mmu.write_byte(addr, val);
+        self.mmu.borrow_mut().write_byte(addr, val);
 
         8
     }
@@ -1875,7 +1878,7 @@ impl Cpu {
 
         let val = self.registers.d();
         let addr = self.registers.hl();
-        self.mmu.write_byte(addr, val);
+        self.mmu.borrow_mut().write_byte(addr, val);
 
         8
     }
@@ -1886,7 +1889,7 @@ impl Cpu {
 
         let val = self.registers.e();
         let addr = self.registers.hl();
-        self.mmu.write_byte(addr, val);
+        self.mmu.borrow_mut().write_byte(addr, val);
 
         8
     }
@@ -1897,7 +1900,7 @@ impl Cpu {
 
         let val = self.registers.h();
         let addr = self.registers.hl();
-        self.mmu.write_byte(addr, val);
+        self.mmu.borrow_mut().write_byte(addr, val);
 
         8
     }
@@ -1908,7 +1911,7 @@ impl Cpu {
 
         let val = self.registers.l();
         let addr = self.registers.hl();
-        self.mmu.write_byte(addr, val);
+        self.mmu.borrow_mut().write_byte(addr, val);
 
         8
     }
@@ -1926,7 +1929,7 @@ impl Cpu {
 
         let val = self.registers.a();
         let addr = self.registers.hl();
-        self.mmu.write_byte(addr, val);
+        self.mmu.borrow_mut().write_byte(addr, val);
 
         8
     }
@@ -1996,7 +1999,7 @@ impl Cpu {
         trace!("LD A,(HL)");
 
         let addr = self.registers.hl();
-        let val = self.mmu.read_byte(addr);
+        let val = self.mmu.borrow().read_byte(addr);
         self.registers.set_a(val);
 
         8
@@ -2119,7 +2122,7 @@ impl Cpu {
         trace!("ADD A,(HL)");
 
         let a = self.registers.a();
-        let operand = self.mmu.read_byte(self.registers.hl());
+        let operand = self.mmu.borrow().read_byte(self.registers.hl());
         let (res, carry, half_carry) = alu::add2_8bit(a, operand);
         self.registers.set_a(res);
 
@@ -2261,7 +2264,7 @@ impl Cpu {
         trace!("ADC A,(HL)");
 
         let a = self.registers.a();
-        let operand = self.mmu.read_byte(self.registers.hl());
+        let operand = self.mmu.borrow().read_byte(self.registers.hl());
         let (res, carry, half_carry) =
             alu::add3_8bit(a, operand, self.registers.carry_flag() as u8);
         self.registers.set_a(res);
@@ -2399,7 +2402,7 @@ impl Cpu {
         trace!("SUB (HL)");
 
         let a = self.registers.a();
-        let operand = self.mmu.read_byte(self.registers.hl());
+        let operand = self.mmu.borrow().read_byte(self.registers.hl());
         let (res, carry, half_carry) = alu::sub2_8bit(a, operand);
         self.registers.set_a(res);
 
@@ -2541,7 +2544,7 @@ impl Cpu {
         trace!("SBC A,(HL)");
 
         let a = self.registers.a();
-        let operand = self.mmu.read_byte(self.registers.hl());
+        let operand = self.mmu.borrow().read_byte(self.registers.hl());
         let (res, carry, half_carry) =
             alu::sub3_8bit(a, operand, self.registers.carry_flag() as u8);
         self.registers.set_a(res);
@@ -2679,7 +2682,7 @@ impl Cpu {
         trace!("AND (HL)");
 
         let a = self.registers.a();
-        let operand = self.mmu.read_byte(self.registers.hl());
+        let operand = self.mmu.borrow().read_byte(self.registers.hl());
         let res = a & operand;
         self.registers.set_a(res);
 
@@ -2815,7 +2818,7 @@ impl Cpu {
         trace!("XOR (HL)");
 
         let a = self.registers.a();
-        let operand = self.mmu.read_byte(self.registers.hl());
+        let operand = self.mmu.borrow().read_byte(self.registers.hl());
         let res = a ^ operand;
         self.registers.set_a(res);
 
@@ -2951,7 +2954,7 @@ impl Cpu {
         trace!("OR (HL)");
 
         let a = self.registers.a();
-        let operand = self.mmu.read_byte(self.registers.hl());
+        let operand = self.mmu.borrow().read_byte(self.registers.hl());
         let res = a | operand;
         self.registers.set_a(res);
 
@@ -3081,7 +3084,7 @@ impl Cpu {
 
         let a = self.registers.a();
         let addr = self.registers.hl();
-        let val = self.mmu.read_byte(addr);
+        let val = self.mmu.borrow().read_byte(addr);
 
         let (res, carry, half_carry) = alu::sub2_8bit(a, val);
         self.registers.set_zero_flag(res == 0);
@@ -3466,7 +3469,7 @@ impl Cpu {
 
         let offset = self.fetch_word();
         let addr = 0xff00 | offset;
-        self.mmu.write_byte(addr, self.registers.a());
+        self.mmu.borrow_mut().write_byte(addr, self.registers.a());
 
         12
     }
@@ -3488,7 +3491,7 @@ impl Cpu {
         let val = self.registers.a();
 
         let addr = 0xff00 | self.registers.c() as u16;
-        self.mmu.write_byte(addr, val);
+        self.mmu.borrow_mut().write_byte(addr, val);
 
         8
     }
@@ -3562,7 +3565,7 @@ impl Cpu {
         let val = self.registers.a();
 
         let addr = self.fetch_word();
-        self.mmu.write_byte(addr, val);
+        self.mmu.borrow_mut().write_byte(addr, val);
 
         16
     }
@@ -3599,7 +3602,7 @@ impl Cpu {
         trace!("LDH A,(a8)");
 
         let addr = 0xff00 | self.fetch_byte() as u16;
-        let val = self.mmu.read_byte(addr);
+        let val = self.mmu.borrow().read_byte(addr);
         self.registers.set_a(val);
 
         12
@@ -3620,7 +3623,7 @@ impl Cpu {
         trace!("LD A,(C)");
 
         let addr = 0xff00 | self.registers.c() as u16;
-        let val = self.mmu.read_byte(addr);
+        let val = self.mmu.borrow().read_byte(addr);
 
         self.registers.set_a(val);
 
@@ -3701,7 +3704,7 @@ impl Cpu {
         trace!("LD A,(a16)");
 
         let addr = self.fetch_word();
-        let val = self.mmu.read_byte(addr);
+        let val = self.mmu.borrow().read_byte(addr);
 
         self.registers.set_a(val);
 
@@ -3836,9 +3839,9 @@ impl Cpu {
         trace!("RLC (HL)");
 
         let addr = self.registers.hl();
-        let res = self.mmu.read_byte(addr).rotate_left(1);
+        let res = self.mmu.borrow().read_byte(addr).rotate_left(1);
 
-        self.mmu.write_byte(addr, res);
+        self.mmu.borrow_mut().write_byte(addr, res);
         self.registers.set_zero_flag(res == 0);
         self.registers.set_negative_flag(false);
         self.registers.set_half_carry_flag(false);
@@ -3957,9 +3960,9 @@ impl Cpu {
         trace!("RRC (HL)");
 
         let addr = self.registers.hl();
-        let res = self.mmu.read_byte(addr).rotate_right(1);
+        let res = self.mmu.borrow().read_byte(addr).rotate_right(1);
 
-        self.mmu.write_byte(addr, res);
+        self.mmu.borrow_mut().write_byte(addr, res);
         self.registers.set_zero_flag(res == 0);
         self.registers.set_negative_flag(false);
         self.registers.set_half_carry_flag(false);
@@ -4096,12 +4099,12 @@ impl Cpu {
         trace!("RL (HL)");
 
         let addr = self.registers.hl();
-        let val = self.mmu.read_byte(addr);
+        let val = self.mmu.borrow().read_byte(addr);
         let carry = (val & 0x80) != 0;
         let prev_carry = self.registers.carry_flag() as u8;
         let res = val.wrapping_shl(1) | prev_carry;
 
-        self.mmu.write_byte(addr, val);
+        self.mmu.borrow_mut().write_byte(addr, val);
         self.registers.set_zero_flag(res == 0);
         self.registers.set_negative_flag(false);
         self.registers.set_half_carry_flag(false);
@@ -4241,12 +4244,12 @@ impl Cpu {
         trace!("RR (HL)");
 
         let addr = self.registers.hl();
-        let val = self.mmu.read_byte(addr);
+        let val = self.mmu.borrow().read_byte(addr);
         let carry = (val & 0x01) != 0;
         let prev_carry = self.registers.carry_flag() as u8;
         let res = val.wrapping_shr(1) | (prev_carry << 7);
 
-        self.mmu.write_byte(addr, val);
+        self.mmu.borrow_mut().write_byte(addr, val);
         self.registers.set_zero_flag(res == 0);
         self.registers.set_negative_flag(false);
         self.registers.set_half_carry_flag(false);
@@ -4380,11 +4383,11 @@ impl Cpu {
         trace!("SLA (HL)");
 
         let addr = self.registers.hl();
-        let val = self.mmu.read_byte(addr);
+        let val = self.mmu.borrow().read_byte(addr);
         let carry = (val & 0x80) != 0;
         let val = val.wrapping_shl(1);
 
-        self.mmu.write_byte(addr, val);
+        self.mmu.borrow_mut().write_byte(addr, val);
         self.registers.set_zero_flag(val == 0);
         self.registers.set_negative_flag(false);
         self.registers.set_half_carry_flag(false);
@@ -4508,9 +4511,9 @@ impl Cpu {
         trace!("SRA (HL)");
 
         let addr = self.registers.hl();
-        let val = self.mmu.read_byte(addr);
+        let val = self.mmu.borrow().read_byte(addr);
         let res = self.sra(val);
-        self.mmu.write_byte(addr, val);
+        self.mmu.borrow_mut().write_byte(addr, val);
 
         16
     }
@@ -4615,8 +4618,8 @@ impl Cpu {
         trace!("SWAP (HL)");
 
         let addr = self.registers.hl();
-        let val = self.mmu.read_byte(addr).rotate_left(4);
-        self.mmu.write_byte(addr, val);
+        let val = self.mmu.borrow().read_byte(addr).rotate_left(4);
+        self.mmu.borrow_mut().write_byte(addr, val);
         self.registers.set_zero_flag(val == 0);
         self.registers.set_negative_flag(false);
         self.registers.set_half_carry_flag(false);
@@ -4745,11 +4748,11 @@ impl Cpu {
         trace!("SRL (HL)");
 
         let addr = self.registers.hl();
-        let val = self.mmu.read_byte(addr);
+        let val = self.mmu.borrow().read_byte(addr);
         let carry = (val & 0x01) != 0;
         let res = val.wrapping_shr(1);
 
-        self.mmu.write_byte(addr, res);
+        self.mmu.borrow_mut().write_byte(addr, res);
         self.registers.set_zero_flag(res == 0);
         self.registers.set_negative_flag(false);
         self.registers.set_half_carry_flag(false);
@@ -4858,7 +4861,7 @@ impl Cpu {
         trace!("BIT 0,(HL)");
 
         let hl = self.registers.hl();
-        let val = self.mmu.read_byte(hl);
+        let val = self.mmu.borrow().read_byte(hl);
         let zf = val & (1 << 0);
         self.registers.set_zero_flag(zf == 0);
         self.registers.set_negative_flag(false);
@@ -4963,7 +4966,7 @@ impl Cpu {
         trace!("BIT 1,(HL)");
 
         let hl = self.registers.hl();
-        let val = self.mmu.read_byte(hl);
+        let val = self.mmu.borrow().read_byte(hl);
         let zf = val & (1 << 1);
         self.registers.set_zero_flag(zf == 0);
         self.registers.set_negative_flag(false);
@@ -5068,7 +5071,7 @@ impl Cpu {
         trace!("BIT 2,(HL)");
 
         let hl = self.registers.hl();
-        let val = self.mmu.read_byte(hl);
+        let val = self.mmu.borrow().read_byte(hl);
         let zf = val & (1 << 2);
         self.registers.set_zero_flag(zf == 0);
         self.registers.set_negative_flag(false);
@@ -5173,7 +5176,7 @@ impl Cpu {
         trace!("BIT 3,(HL)");
 
         let hl = self.registers.hl();
-        let val = self.mmu.read_byte(hl);
+        let val = self.mmu.borrow().read_byte(hl);
         let zf = val & (1 << 3);
         self.registers.set_zero_flag(zf == 0);
         self.registers.set_negative_flag(false);
@@ -5278,7 +5281,7 @@ impl Cpu {
         trace!("BIT 4,(HL)");
 
         let hl = self.registers.hl();
-        let val = self.mmu.read_byte(hl);
+        let val = self.mmu.borrow().read_byte(hl);
         let zf = val & (1 << 4);
         self.registers.set_zero_flag(zf == 0);
         self.registers.set_negative_flag(false);
@@ -5383,7 +5386,7 @@ impl Cpu {
         trace!("BIT 5,(HL)");
 
         let hl = self.registers.hl();
-        let val = self.mmu.read_byte(hl);
+        let val = self.mmu.borrow().read_byte(hl);
         let zf = val & (1 << 5);
         self.registers.set_zero_flag(zf == 0);
         self.registers.set_negative_flag(false);
@@ -5488,7 +5491,7 @@ impl Cpu {
         trace!("BIT 6,(HL)");
 
         let hl = self.registers.hl();
-        let val = self.mmu.read_byte(hl);
+        let val = self.mmu.borrow().read_byte(hl);
         let zf = val & (1 << 6);
         self.registers.set_zero_flag(zf == 0);
         self.registers.set_negative_flag(false);
@@ -5593,7 +5596,7 @@ impl Cpu {
         trace!("BIT 7,(HL)");
 
         let hl = self.registers.hl();
-        let val = self.mmu.read_byte(hl);
+        let val = self.mmu.borrow().read_byte(hl);
         let zf = val & (1 << 7);
         self.registers.set_zero_flag(zf == 0);
         self.registers.set_negative_flag(false);
@@ -5686,9 +5689,9 @@ impl Cpu {
         trace!("RES 0,(HL)");
 
         let hl = self.registers.hl();
-        let val = self.mmu.read_byte(hl);
+        let val = self.mmu.borrow().read_byte(hl);
         let res = val & !(1 << 0);
-        self.mmu.write_byte(hl, res);
+        self.mmu.borrow_mut().write_byte(hl, res);
 
         16
     }
@@ -5775,9 +5778,9 @@ impl Cpu {
         trace!("RES 1,(HL)");
 
         let hl = self.registers.hl();
-        let val = self.mmu.read_byte(hl);
+        let val = self.mmu.borrow().read_byte(hl);
         let res = val & !(1 << 1);
-        self.mmu.write_byte(hl, res);
+        self.mmu.borrow_mut().write_byte(hl, res);
 
         16
     }
@@ -5864,9 +5867,9 @@ impl Cpu {
         trace!("RES 2,(HL)");
 
         let hl = self.registers.hl();
-        let val = self.mmu.read_byte(hl);
+        let val = self.mmu.borrow().read_byte(hl);
         let res = val & !(1 << 2);
-        self.mmu.write_byte(hl, res);
+        self.mmu.borrow_mut().write_byte(hl, res);
 
         16
     }
@@ -5953,9 +5956,9 @@ impl Cpu {
         trace!("RES 3,(HL)");
 
         let hl = self.registers.hl();
-        let val = self.mmu.read_byte(hl);
+        let val = self.mmu.borrow().read_byte(hl);
         let res = val & !(1 << 3);
-        self.mmu.write_byte(hl, res);
+        self.mmu.borrow_mut().write_byte(hl, res);
 
         16
     }
@@ -6042,9 +6045,9 @@ impl Cpu {
         trace!("RES 4,(HL)");
 
         let hl = self.registers.hl();
-        let val = self.mmu.read_byte(hl);
+        let val = self.mmu.borrow().read_byte(hl);
         let res = val & !(1 << 4);
-        self.mmu.write_byte(hl, res);
+        self.mmu.borrow_mut().write_byte(hl, res);
 
         16
     }
@@ -6131,9 +6134,9 @@ impl Cpu {
         trace!("RES 5,(HL)");
 
         let hl = self.registers.hl();
-        let val = self.mmu.read_byte(hl);
+        let val = self.mmu.borrow().read_byte(hl);
         let res = val & !(1 << 5);
-        self.mmu.write_byte(hl, res);
+        self.mmu.borrow_mut().write_byte(hl, res);
 
         16
     }
@@ -6220,9 +6223,9 @@ impl Cpu {
         trace!("RES 6,(HL)");
 
         let hl = self.registers.hl();
-        let val = self.mmu.read_byte(hl);
+        let val = self.mmu.borrow().read_byte(hl);
         let res = val & !(1 << 6);
-        self.mmu.write_byte(hl, res);
+        self.mmu.borrow_mut().write_byte(hl, res);
 
         16
     }
@@ -6309,9 +6312,9 @@ impl Cpu {
         trace!("RES 7,(HL)");
 
         let hl = self.registers.hl();
-        let val = self.mmu.read_byte(hl);
+        let val = self.mmu.borrow().read_byte(hl);
         let res = val & !(1 << 7);
-        self.mmu.write_byte(hl, res);
+        self.mmu.borrow_mut().write_byte(hl, res);
 
         16
     }
@@ -6398,9 +6401,9 @@ impl Cpu {
         trace!("SET 0,(HL)");
 
         let hl = self.registers.hl();
-        let val = self.mmu.read_byte(hl);
+        let val = self.mmu.borrow().read_byte(hl);
         let res = val | (1 << 0);
-        self.mmu.write_byte(hl, res);
+        self.mmu.borrow_mut().write_byte(hl, res);
 
         16
     }
@@ -6487,9 +6490,9 @@ impl Cpu {
         trace!("SET 1,(HL)");
 
         let hl = self.registers.hl();
-        let val = self.mmu.read_byte(hl);
+        let val = self.mmu.borrow().read_byte(hl);
         let res = val | (1 << 1);
-        self.mmu.write_byte(hl, res);
+        self.mmu.borrow_mut().write_byte(hl, res);
 
         16
     }
@@ -6576,9 +6579,9 @@ impl Cpu {
         trace!("SET 2,(HL)");
 
         let hl = self.registers.hl();
-        let val = self.mmu.read_byte(hl);
+        let val = self.mmu.borrow().read_byte(hl);
         let res = val | (1 << 2);
-        self.mmu.write_byte(hl, res);
+        self.mmu.borrow_mut().write_byte(hl, res);
 
         16
     }
@@ -6665,9 +6668,9 @@ impl Cpu {
         trace!("SET 3,(HL)");
 
         let hl = self.registers.hl();
-        let val = self.mmu.read_byte(hl);
+        let val = self.mmu.borrow().read_byte(hl);
         let res = val | (1 << 3);
-        self.mmu.write_byte(hl, res);
+        self.mmu.borrow_mut().write_byte(hl, res);
 
         16
     }
@@ -6754,9 +6757,9 @@ impl Cpu {
         trace!("SET 4,(HL)");
 
         let hl = self.registers.hl();
-        let val = self.mmu.read_byte(hl);
+        let val = self.mmu.borrow().read_byte(hl);
         let res = val | (1 << 4);
-        self.mmu.write_byte(hl, res);
+        self.mmu.borrow_mut().write_byte(hl, res);
 
         16
     }
@@ -6843,9 +6846,9 @@ impl Cpu {
         trace!("SET 5,(HL)");
 
         let hl = self.registers.hl();
-        let val = self.mmu.read_byte(hl);
+        let val = self.mmu.borrow().read_byte(hl);
         let res = val | (1 << 5);
-        self.mmu.write_byte(hl, res);
+        self.mmu.borrow_mut().write_byte(hl, res);
 
         16
     }
@@ -6932,9 +6935,9 @@ impl Cpu {
         trace!("SET 6,(HL)");
 
         let hl = self.registers.hl();
-        let val = self.mmu.read_byte(hl);
+        let val = self.mmu.borrow().read_byte(hl);
         let res = val | (1 << 6);
-        self.mmu.write_byte(hl, res);
+        self.mmu.borrow_mut().write_byte(hl, res);
 
         16
     }
@@ -7021,9 +7024,9 @@ impl Cpu {
         trace!("SET 7,(HL)");
 
         let hl = self.registers.hl();
-        let val = self.mmu.read_byte(hl);
+        let val = self.mmu.borrow().read_byte(hl);
         let res = val | (1 << 7);
-        self.mmu.write_byte(hl, res);
+        self.mmu.borrow_mut().write_byte(hl, res);
 
         16
     }
