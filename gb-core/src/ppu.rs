@@ -138,9 +138,12 @@ impl Ppu {
             self.set_mode(Mode::OAMSearch);
         } else if self.clock < 252 {
             self.set_mode(Mode::Transfer);
-            let x = (self.clock - 80) as u8;
-            let y = self.ly;
-            self.draw_background(x, y);
+            if self.clock == 251 && (self.ly as usize) < HEIGHT {
+                for x in 0..WIDTH {
+                    let y = self.ly;
+                    self.draw_background(x as u8, y);
+                }
+            }
         } else {
             self.set_mode(Mode::HBlank);
         }
@@ -176,6 +179,7 @@ impl Ppu {
             0xff41 => self.stat = val,
             0xff42 => self.scy = val,
             0xff43 => self.scx = val,
+            0xff44 => {} // ly register is read-only
             0xff45 => self.lyc = val,
             0xff47 => self.bgp = val,
             0xff48 => self.obp0 = val,
@@ -201,7 +205,7 @@ impl Ppu {
 
     fn set_lyc_ly_flag(&mut self) {
         match self.lyc == self.ly {
-            true => self.stat |= (1 << 2),
+            true => self.stat |= 1 << 2,
             false => self.stat &= !(1 << 2),
         }
     }
@@ -243,12 +247,10 @@ impl Ppu {
         let tile_data_base_addr = self.tile_data_base();
         if tile_data_base_addr == 0x8000 {
             tile_data_base_addr + 16 * tile_id
+        } else if tile_id < 128 {
+            0x9000 + 16 * tile_id
         } else {
-            if tile_id < 128 {
-                0x9000 + 16 * tile_id
-            } else {
-                tile_data_base_addr + 16 * (tile_id - 128)
-            }
+            tile_data_base_addr + 16 * (tile_id - 128)
         }
     }
 
@@ -280,17 +282,21 @@ impl Ppu {
     }
 
     fn draw_background(&mut self, x: u8, y: u8) {
-        let pixel_x = x + self.scx;
-        let pixel_y = y + self.scy;
+        let pixel_x = x as u16 + self.scx as u16;
+        let pixel_y = y as u16 + self.scy as u16;
+        if pixel_y >= 256 || pixel_x >= 256 {
+            self.screen[y as usize][x as usize] = Color::white();
+            return;
+        }
 
-        let tile_map_index = (pixel_x / 8 + 32 * pixel_y / 8) as usize;
-        let tile_map_base = self.bg_tile_map_base() as usize;
-        let tile_id = self.vram[tile_map_base + tile_map_index];
+        let tile_map_index = pixel_x / 8 + 32 * (pixel_y / 8);
+        let tile_map_base = self.bg_tile_map_base();
+        let tile_id = self.read_byte(tile_map_base + tile_map_index);
 
         let tile_x = x % 8;
         let tile_y = y % 8;
 
         let color = self.bg_window_color(tile_id, tile_x, tile_y);
-        self.screen[x as usize][y as usize] = color;
+        self.screen[y as usize][x as usize] = color;
     }
 }

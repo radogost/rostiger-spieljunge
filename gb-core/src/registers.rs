@@ -65,7 +65,7 @@ impl Registers {
     }
 
     pub fn e(&self) -> u8 {
-        self.c
+        self.e
     }
 
     pub fn set_e(&mut self, e: u8) {

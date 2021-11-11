@@ -1,5 +1,6 @@
 [workspace]
 
 members = [
+    "gb-native",
     "gb-core"
 ]

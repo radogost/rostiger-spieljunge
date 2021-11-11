@@ -51,7 +51,7 @@ impl Cpu {
 
     fn execute(&mut self) -> u8 {
         let opcode = self.fetch_byte();
-        match opcode {
+        let res = match opcode {
             0x00 => self.op_0000(),
             0x01 => self.op_0001(),
             0x02 => self.op_0002(),
@@ -296,11 +296,13 @@ impl Cpu {
             0xfa => self.op_00fa(),
             0xfb => self.op_00fb(),
             0xfe => self.op_00fe(),
+            0xff => self.op_00ff(),
             invalid => {
                 error!("Invalid opcode {:04x}", invalid);
                 0
             }
-        }
+        };
+        res
     }
 
     fn execute_cb(&mut self) -> u8 {
@@ -1056,8 +1058,7 @@ impl Cpu {
             value - adjust
         } else {
             value + adjust
-        };
-        let new_value = (new_value & 0xff) as u8;
+        } as u8;
         let new_zero = new_value == 0;
 
         self.registers.set_a(new_value);
@@ -3471,8 +3472,8 @@ impl Cpu {
     fn op_00e0(&mut self) -> u8 {
         trace!("LDH (a8),A");
 
-        let offset = self.fetch_word();
-        let addr = 0xff00 | offset;
+        let offset = self.fetch_byte();
+        let addr = 0xff00 | offset as u16;
         self.mmu.borrow_mut().write_byte(addr, self.registers.a());
 
         12
@@ -4517,7 +4518,7 @@ impl Cpu {
         let addr = self.registers.hl();
         let val = self.mmu.borrow().read_byte(addr);
         let res = self.sra(val);
-        self.mmu.borrow_mut().write_byte(addr, val);
+        self.mmu.borrow_mut().write_byte(addr, res);
 
         16
     }
@@ -7044,5 +7045,39 @@ impl Cpu {
         self.registers.set_a(res);
 
         8
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    use std::cell::RefCell;
+    use std::rc::Rc;
+
+    use crate::mmu::Mmu;
+    use crate::ppu::Ppu;
+
+    use super::Cpu;
+
+    #[test]
+    fn push_pop() {
+        let ppu = Rc::new(RefCell::new(Ppu::new()));
+        let mmu = Rc::new(RefCell::new(Mmu::new(ppu)));
+        let mut cpu = Cpu::new(mmu);
+        cpu.registers.set_sp(100);
+
+        let values = vec![0, 1, 2, 3, 4, 5];
+        for val in values.iter() {
+            cpu.push(*val);
+        }
+
+        let mut popped_values = Vec::new();
+        for _ in 0..values.len() {
+            let val = cpu.pop();
+            popped_values.push(val);
+        }
+        popped_values.reverse();
+
+        assert_eq!(values, popped_values);
     }
 }

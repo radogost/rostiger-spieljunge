@@ -12,22 +12,30 @@ pub struct Board {
 }
 
 impl Board {
-    pub fn new() -> Self {
+    pub fn new(cartridge: &[u8]) -> Self {
         let ppu = Rc::new(RefCell::new(Ppu::new()));
-        let mmu = Mmu::new(Rc::clone(&ppu));
+
+        let mut mmu = Mmu::new(Rc::clone(&ppu));
+        for (addr, byte) in cartridge.iter().enumerate() {
+            mmu.write_byte(addr as u16, *byte);
+        }
+
         let mmu = Rc::new(RefCell::new(mmu));
         let cpu = Cpu::new(Rc::clone(&mmu));
         Self { cpu, ppu, ticks: 0 }
     }
 
-    pub fn frame(&mut self) -> [[Color; WIDTH]; HEIGHT] {
+    pub fn step(&mut self) {
         let mut leftticks = (70224 - self.ticks) as isize;
         while leftticks > 0 {
             let steps = self.cpu.step();
             self.ppu.borrow_mut().step(steps);
             leftticks -= steps as isize;
         }
-        self.ticks = (-1 * leftticks) as usize;
+        self.ticks = leftticks.abs() as usize;
+    }
+
+    pub fn frame(&self) -> [[Color; WIDTH]; HEIGHT] {
         self.ppu.borrow().frame()
     }
 }

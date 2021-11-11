@@ -21,7 +21,7 @@ impl Mmu {
     pub fn read_byte(&self, addr: u16) -> u8 {
         match addr {
             0x8000..=0x9fff => self.ppu.borrow().read_byte(addr),
-            0xff40..=0xff4b => self.ppu.borrow().read_byte(addr),
+            0xff40..=0xff45 | 0xff47..=0xff4b => self.ppu.borrow().read_byte(addr),
             0xfe00..=0xfe9f => self.ppu.borrow().read_byte(addr),
             _ => self.memory[addr as usize],
         }
@@ -30,7 +30,7 @@ impl Mmu {
     pub fn write_byte(&mut self, addr: u16, value: u8) {
         match addr {
             0x8000..=0x9fff => self.ppu.borrow_mut().write_byte(addr, value),
-            0xff40..=0xff4b => self.ppu.borrow_mut().write_byte(addr, value),
+            0xff40..=0xff45 | 0xff47..=0xff4b => self.ppu.borrow_mut().write_byte(addr, value),
             0xfe00..=0xfe9f => self.ppu.borrow_mut().write_byte(addr, value),
             _ => self.memory[addr as usize] = value,
         }
@@ -46,6 +46,6 @@ impl Mmu {
         let high = (value >> 8) as u8;
         let low = (value & 0xFF) as u8;
         self.write_byte(addr, low);
-        self.write_byte(addr, high);
+        self.write_byte(addr + 1, high);
     }
 }
