@@ -20,6 +20,10 @@ impl Cpu {
         }
     }
 
+    pub fn step(&mut self) -> u8 {
+        self.execute()
+    }
+
     fn fetch_byte(&mut self) -> u8 {
         let pc = self.registers.pc();
         self.registers.inc_pc(1);
