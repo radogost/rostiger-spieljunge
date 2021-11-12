@@ -626,9 +626,9 @@ impl Cpu {
     }
 
     fn dec_8bit(&mut self, val: u8) -> u8 {
-        let res = val.wrapping_sub(1);
+        let (res, _, half_carry) = alu::sub2_8bit(val, 1);
 
-        self.registers.set_half_carry_flag(res == 0xf);
+        self.registers.set_half_carry_flag(half_carry);
         self.registers.set_zero_flag(res == 0);
         self.registers.set_negative_flag(true);
 
