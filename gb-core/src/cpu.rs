@@ -20,6 +20,13 @@ impl Cpu {
         }
     }
 
+    pub fn no_boot(mmu: Rc<RefCell<Mmu>>) -> Self {
+        Cpu {
+            registers: Registers::no_boot(),
+            mmu,
+        }
+    }
+
     pub fn step(&mut self) -> u8 {
         self.execute()
     }

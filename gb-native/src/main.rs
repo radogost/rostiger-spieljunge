@@ -2,6 +2,9 @@ use std::fs::File;
 use std::io::Read;
 use std::path::PathBuf;
 
+#[macro_use]
+extern crate clap;
+
 use ggez::{event, graphics, timer, Context, GameResult};
 
 use gb_core::{Board, HEIGHT, WIDTH};
@@ -65,7 +68,7 @@ impl ggez::event::EventHandler<ggez::GameError> for GameBoy {
     }
 }
 
-fn load_file(path: String) -> Vec<u8> {
+fn load_file(path: &str) -> Vec<u8> {
     let path = PathBuf::from(path);
     let mut data = Vec::new();
     File::open(&path)
@@ -78,26 +81,32 @@ fn load_file(path: String) -> Vec<u8> {
 fn main() -> GameResult {
     env_logger::init();
 
-    let bios = std::env::args().nth(1).unwrap();
-    let cartridge = std::env::args().nth(2).unwrap();
+    let matches = clap_app!(app =>
+        (version: "0.0")
+        (author: "radogost")
+        (about: "A GameBoy emulator written in Rust")
+        (@arg BOOT: --boot +takes_value "Boot rom file")
+        (@arg CARTRIDGE: +required "file with game data")
+    )
+    .get_matches();
 
-    let bios_data = load_file(bios);
+    let cartridge = matches.value_of("CARTRIDGE").unwrap();
     let cartridge_data = load_file(cartridge);
 
-    let mut data = Vec::new();
-    for byte in bios_data.iter() {
-        data.push(*byte);
-    }
-    for byte in cartridge_data.iter().skip(bios_data.len()) {
-        data.push(*byte);
-    }
+    let board = if let Some(path) = matches.value_of("BOOT") {
+        let boot_data = load_file(path);
+        Board::new(&boot_data, &cartridge_data)
+    } else {
+        println!("No boot rom provided.");
+        Board::no_boot(&cartridge_data)
+    };
+
+    let gameboy = GameBoy::new(board);
 
     let (ctx, event_loop) = ggez::ContextBuilder::new("Rostiger Spieljunge", "radogost")
         .window_setup(ggez::conf::WindowSetup::default().title("Rostiger Spieljunge"))
         .window_mode(ggez::conf::WindowMode::default().dimensions(SCREEN_SIZE.0, SCREEN_SIZE.1))
         .build()?;
-
-    let gameboy = GameBoy::new(Board::new(&data));
 
     event::run(ctx, event_loop, gameboy);
 }
