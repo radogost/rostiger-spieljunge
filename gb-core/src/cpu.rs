@@ -4639,19 +4639,25 @@ impl Cpu {
         8
     }
 
+    fn srl(&mut self, val: u8) -> u8 {
+        let carry = (val & 0x01) != 0;
+        let res = val.wrapping_shr(1);
+
+        self.registers.set_zero_flag(res == 0);
+        self.registers.set_negative_flag(false);
+        self.registers.set_half_carry_flag(false);
+        self.registers.set_carry_flag(carry);
+
+        res
+    }
+
     /// SRL B
     fn op_cb38(&mut self) -> u8 {
         trace!("SRL B");
 
         let val = self.registers.b();
-        let carry = (val & 0x01) != 0;
-        let res = val.wrapping_shr(1);
-
-        self.registers.set_b(val);
-        self.registers.set_zero_flag(res == 0);
-        self.registers.set_negative_flag(false);
-        self.registers.set_half_carry_flag(false);
-        self.registers.set_carry_flag(carry);
+        let res = self.srl(val);
+        self.registers.set_b(res);
 
         8
     }
@@ -4661,14 +4667,8 @@ impl Cpu {
         trace!("SRL C");
 
         let val = self.registers.c();
-        let carry = (val & 0x01) != 0;
-        let res = val.wrapping_shr(1);
-
-        self.registers.set_c(val);
-        self.registers.set_zero_flag(res == 0);
-        self.registers.set_negative_flag(false);
-        self.registers.set_half_carry_flag(false);
-        self.registers.set_carry_flag(carry);
+        let res = self.srl(val);
+        self.registers.set_c(res);
 
         8
     }
@@ -4678,14 +4678,8 @@ impl Cpu {
         trace!("SRL D");
 
         let val = self.registers.d();
-        let carry = (val & 0x01) != 0;
-        let res = val.wrapping_shr(1);
-
-        self.registers.set_d(val);
-        self.registers.set_zero_flag(res == 0);
-        self.registers.set_negative_flag(false);
-        self.registers.set_half_carry_flag(false);
-        self.registers.set_carry_flag(carry);
+        let res = self.srl(val);
+        self.registers.set_d(res);
 
         8
     }
@@ -4695,14 +4689,8 @@ impl Cpu {
         trace!("SRL E");
 
         let val = self.registers.e();
-        let carry = (val & 0x01) != 0;
-        let res = val.wrapping_shr(1);
-
-        self.registers.set_e(val);
-        self.registers.set_zero_flag(res == 0);
-        self.registers.set_negative_flag(false);
-        self.registers.set_half_carry_flag(false);
-        self.registers.set_carry_flag(carry);
+        let res = self.srl(val);
+        self.registers.set_e(res);
 
         8
     }
@@ -4712,14 +4700,8 @@ impl Cpu {
         trace!("SRL H");
 
         let val = self.registers.h();
-        let carry = (val & 0x01) != 0;
-        let res = val.wrapping_shr(1);
-
-        self.registers.set_h(val);
-        self.registers.set_zero_flag(res == 0);
-        self.registers.set_negative_flag(false);
-        self.registers.set_half_carry_flag(false);
-        self.registers.set_carry_flag(carry);
+        let res = self.srl(val);
+        self.registers.set_h(res);
 
         8
     }
@@ -4729,14 +4711,8 @@ impl Cpu {
         trace!("SRL L");
 
         let val = self.registers.l();
-        let carry = (val & 0x01) != 0;
-        let res = val.wrapping_shr(1);
-
-        self.registers.set_l(val);
-        self.registers.set_zero_flag(res == 0);
-        self.registers.set_negative_flag(false);
-        self.registers.set_half_carry_flag(false);
-        self.registers.set_carry_flag(carry);
+        let res = self.srl(val);
+        self.registers.set_l(res);
 
         8
     }
@@ -4747,14 +4723,8 @@ impl Cpu {
 
         let addr = self.registers.hl();
         let val = self.mmu.borrow().read_byte(addr);
-        let carry = (val & 0x01) != 0;
-        let res = val.wrapping_shr(1);
-
+        let res = self.srl(val);
         self.mmu.borrow_mut().write_byte(addr, res);
-        self.registers.set_zero_flag(res == 0);
-        self.registers.set_negative_flag(false);
-        self.registers.set_half_carry_flag(false);
-        self.registers.set_carry_flag(carry);
 
         16
     }
@@ -4764,14 +4734,8 @@ impl Cpu {
         trace!("SRL A");
 
         let val = self.registers.a();
-        let carry = (val & 0x01) != 0;
-        let res = val.wrapping_shr(1);
-
-        self.registers.set_a(val);
-        self.registers.set_zero_flag(res == 0);
-        self.registers.set_negative_flag(false);
-        self.registers.set_half_carry_flag(false);
-        self.registers.set_carry_flag(carry);
+        let res = self.srl(val);
+        self.registers.set_a(res);
 
         8
     }
