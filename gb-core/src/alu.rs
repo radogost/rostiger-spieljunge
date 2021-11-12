@@ -1,6 +1,6 @@
 /// Performs an 8bit "add" arithmetic of 2 operands and returns the result, carry and half carry
 pub(crate) fn add2_8bit(a: u8, b: u8) -> (u8, bool, bool) {
-    let res = a.wrapping_add(a);
+    let res = a.wrapping_add(b);
     let carry = res < a;
     let half_carry = (((a & 0xf) + (b & 0xf)) & 0x10) == 0x10;
     (res, carry, half_carry)
