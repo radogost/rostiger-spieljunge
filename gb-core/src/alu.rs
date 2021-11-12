@@ -17,7 +17,7 @@ pub(crate) fn add3_8bit(a: u8, b: u8, c: u8) -> (u8, bool, bool) {
 pub(crate) fn add2_16bit(a: u16, b: u16) -> (u16, bool, bool) {
     let res = a.wrapping_add(b);
     let carry = res < a;
-    let half_carry = (((a & 0xf) + (b & 0xf)) & 0x10) == 0x10;
+    let half_carry = (a & 0x0fff) + (b & 0x0fff) > 0x0fff;
     (res, carry, half_carry)
 }
 
