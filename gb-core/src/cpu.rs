@@ -633,7 +633,7 @@ impl Cpu {
         self.registers.set_b(val);
         self.registers.set_half_carry_flag(val == 0xf);
         self.registers.set_zero_flag(val == 0);
-        self.registers.set_negative_flag(false);
+        self.registers.set_negative_flag(true);
 
         4
     }
