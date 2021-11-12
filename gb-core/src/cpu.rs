@@ -625,15 +625,23 @@ impl Cpu {
         4
     }
 
+    fn dec_8bit(&mut self, val: u8) -> u8 {
+        let res = val.wrapping_sub(1);
+
+        self.registers.set_half_carry_flag(res == 0xf);
+        self.registers.set_zero_flag(res == 0);
+        self.registers.set_negative_flag(true);
+
+        res
+    }
+
     /// DEC B
     fn op_0005(&mut self) -> u8 {
         trace!("DEC B");
 
-        let val = self.registers.b().wrapping_sub(1);
-        self.registers.set_b(val);
-        self.registers.set_half_carry_flag(val == 0xf);
-        self.registers.set_zero_flag(val == 0);
-        self.registers.set_negative_flag(true);
+        let val = self.registers.b();
+        let res = self.dec_8bit(val);
+        self.registers.set_b(res);
 
         4
     }
@@ -729,11 +737,9 @@ impl Cpu {
     fn op_000d(&mut self) -> u8 {
         trace!("DEC C");
 
-        let val = self.registers.c().wrapping_sub(1);
-        self.registers.set_c(val);
-        self.registers.set_half_carry_flag(val == 0xf);
-        self.registers.set_zero_flag(val == 0);
-        self.registers.set_negative_flag(false);
+        let val = self.registers.c();
+        let res = self.dec_8bit(val);
+        self.registers.set_c(res);
 
         4
     }
@@ -820,11 +826,9 @@ impl Cpu {
     fn op_0015(&mut self) -> u8 {
         trace!("DEC D");
 
-        let val = self.registers.d().wrapping_sub(1);
-        self.registers.set_d(val);
-        self.registers.set_half_carry_flag(val == 0xf);
-        self.registers.set_zero_flag(val == 0);
-        self.registers.set_negative_flag(false);
+        let val = self.registers.d();
+        let res = self.dec_8bit(val);
+        self.registers.set_d(res);
 
         4
     }
@@ -920,11 +924,9 @@ impl Cpu {
     fn op_001d(&mut self) -> u8 {
         trace!("DEC E");
 
-        let val = self.registers.e().wrapping_sub(1);
-        self.registers.set_e(val);
-        self.registers.set_half_carry_flag(val == 0xf);
-        self.registers.set_zero_flag(val == 0);
-        self.registers.set_negative_flag(false);
+        let val = self.registers.e();
+        let res = self.dec_8bit(val);
+        self.registers.set_e(res);
 
         4
     }
@@ -1021,11 +1023,9 @@ impl Cpu {
     fn op_0025(&mut self) -> u8 {
         trace!("DEC H");
 
-        let val = self.registers.h().wrapping_sub(1);
-        self.registers.set_h(val);
-        self.registers.set_half_carry_flag(val == 0xf);
-        self.registers.set_zero_flag(val == 0);
-        self.registers.set_negative_flag(false);
+        let val = self.registers.h();
+        let res = self.dec_8bit(val);
+        self.registers.set_h(res);
 
         4
     }
@@ -1145,11 +1145,9 @@ impl Cpu {
     fn op_002d(&mut self) -> u8 {
         trace!("DEC L");
 
-        let val = self.registers.l().wrapping_sub(1);
-        self.registers.set_l(val);
-        self.registers.set_half_carry_flag(val == 0xf);
-        self.registers.set_zero_flag(val == 0);
-        self.registers.set_negative_flag(false);
+        let val = self.registers.l();
+        let res = self.dec_8bit(val);
+        self.registers.set_l(res);
 
         4
     }
@@ -1244,12 +1242,9 @@ impl Cpu {
         trace!("DEC (HL)");
 
         let addr = self.registers.hl();
-        let val = self.mmu.borrow().read_byte(addr).wrapping_sub(1);
-
-        self.registers.set_d(val);
-        self.registers.set_half_carry_flag(val == 0xf);
-        self.registers.set_zero_flag(val == 0);
-        self.registers.set_negative_flag(false);
+        let val = self.mmu.borrow().read_byte(addr);
+        let res = self.dec_8bit(val);
+        self.mmu.borrow_mut().write_byte(addr, res);
 
         12
     }
@@ -1345,11 +1340,9 @@ impl Cpu {
     fn op_003d(&mut self) -> u8 {
         trace!("DEC A");
 
-        let val = self.registers.a().wrapping_sub(1);
-        self.registers.set_a(val);
-        self.registers.set_half_carry_flag(val == 0xf);
-        self.registers.set_zero_flag(val == 0);
-        self.registers.set_negative_flag(false);
+        let val = self.registers.a();
+        let res = self.dec_8bit(val);
+        self.registers.set_a(res);
 
         4
     }
