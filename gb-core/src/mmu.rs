@@ -21,6 +21,7 @@ impl Mmu {
     pub fn read_byte(&self, addr: u16) -> u8 {
         match addr {
             0x8000..=0x9fff => self.ppu.borrow().read_byte(addr),
+            0xff00 => 0xff,
             0xff40..=0xff45 | 0xff47..=0xff4b => self.ppu.borrow().read_byte(addr),
             0xfe00..=0xfe9f => self.ppu.borrow().read_byte(addr),
             _ => self.memory[addr as usize],
