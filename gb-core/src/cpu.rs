@@ -3534,8 +3534,11 @@ impl Cpu {
     fn op_00e8(&mut self) -> u8 {
         trace!("ADD SP,r8");
 
-        let operand = alu::signed_byte_to_u16(self.fetch_byte());
-        let (res, carry, half_carry) = alu::add2_16bit(self.registers.sp(), operand);
+        let offset = alu::signed_byte_to_u16(self.fetch_byte());
+        let sp = self.registers.sp();
+        let res = sp.wrapping_add(offset);
+        let carry = (sp & 0xff) + (offset & 0xff) > 0xff;
+        let half_carry = (sp & 0xf) + (offset & 0xf) > 0xf;
 
         self.registers.set_sp(res);
         self.registers.set_zero_flag(false);
@@ -3676,7 +3679,10 @@ impl Cpu {
         trace!("LD HL,SP+r8");
 
         let offset = alu::signed_byte_to_u16(self.fetch_byte());
-        let (res, carry, half_carry) = alu::add2_16bit(self.registers.sp(), offset);
+        let sp = self.registers.sp();
+        let res = sp.wrapping_add(offset);
+        let carry = (sp & 0xff) + (offset & 0xff) > 0xff;
+        let half_carry = (sp & 0xf) + (offset & 0xf) > 0xf;
 
         self.registers.set_hl(res);
         self.registers.set_zero_flag(false);
