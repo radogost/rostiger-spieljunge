@@ -7003,6 +7003,7 @@ mod tests {
     use std::cell::RefCell;
     use std::rc::Rc;
 
+    use crate::cartridge::Cartridge;
     use crate::mmu::Mmu;
     use crate::ppu::Ppu;
 
@@ -7010,10 +7011,12 @@ mod tests {
 
     #[test]
     fn push_pop() {
+        let mock_game = [0u8; 0];
         let ppu = Rc::new(RefCell::new(Ppu::new()));
-        let mmu = Rc::new(RefCell::new(Mmu::new(ppu)));
+        let cartridge = Cartridge::no_boot(&mock_game);
+        let mmu = Rc::new(RefCell::new(Mmu::new(ppu, cartridge)));
         let mut cpu = Cpu::new(mmu);
-        cpu.registers.set_sp(100);
+        cpu.registers.set_sp(0xfffe);
 
         let values = vec![0, 1, 2, 3, 4, 5];
         for val in values.iter() {
