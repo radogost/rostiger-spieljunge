@@ -10,6 +10,9 @@ use crate::registers::Registers;
 pub(crate) struct Cpu {
     registers: Registers,
     mmu: Rc<RefCell<Mmu>>,
+
+    // interrupt master enabled flag
+    ime: bool,
 }
 
 impl Cpu {
@@ -17,6 +20,7 @@ impl Cpu {
         Cpu {
             registers: Registers::new(),
             mmu,
+            ime: false,
         }
     }
 
@@ -24,11 +28,38 @@ impl Cpu {
         Cpu {
             registers: Registers::no_boot(),
             mmu,
+            ime: false,
         }
     }
 
     pub fn step(&mut self) -> u8 {
-        self.execute()
+        if self.handle_interrupt() {
+            16
+        } else {
+            self.execute()
+        }
+    }
+
+    fn handle_interrupt(&mut self) -> bool {
+        let interrupt_enable = self.mmu.borrow().interrupt_enable();
+        let interrupt_flag = self.mmu.borrow().interrupt_flag();
+        let interrupts = interrupt_enable & interrupt_flag;
+
+        if !self.ime || interrupts == 0 {
+            return false;
+        }
+
+        self.ime = false;
+
+        let bit = interrupts.trailing_zeros() as u8;
+        let interrupt_flag = interrupt_flag & !(1 << bit);
+        self.mmu.borrow_mut().set_interrupt_flag(interrupt_flag);
+
+        self.push(self.registers.pc());
+        let pc = 0x40 + bit * 0x08;
+        self.registers.set_pc(pc as u16);
+
+        true
     }
 
     fn fetch_byte(&mut self) -> u8 {
@@ -3400,7 +3431,7 @@ impl Cpu {
 
         let pc = self.pop();
         self.registers.set_pc(pc);
-        // TODO: Enable interrupts
+        self.ime = true;
 
         16
     }
@@ -3634,7 +3665,9 @@ impl Cpu {
     /// DI
     fn op_00f3(&mut self) -> u8 {
         trace!("DI");
-        // TODO
+
+        self.ime = false;
+
         4
     }
 
@@ -3718,7 +3751,9 @@ impl Cpu {
     /// EI
     fn op_00fb(&mut self) -> u8 {
         trace!("EI");
-        // TODO
+
+        self.ime = true;
+
         4
     }
 

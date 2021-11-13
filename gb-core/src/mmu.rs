@@ -10,6 +10,9 @@ pub(crate) struct Mmu {
     ppu: Rc<RefCell<Ppu>>,
     cartridge: Cartridge,
     memory: [u8; MEMORY_SIZE],
+
+    interrupt_enable: u8,
+    interrupt_flag: u8,
 }
 
 impl Mmu {
@@ -18,7 +21,29 @@ impl Mmu {
             ppu,
             cartridge,
             memory: [0; MEMORY_SIZE],
+            interrupt_enable: 0,
+            interrupt_flag: 0,
         }
+    }
+
+    pub fn step(&mut self, steps: u8) {
+        let mut ppu = self.ppu.borrow_mut();
+
+        ppu.step(steps);
+        self.interrupt_flag |= ppu.interrupt_flag();
+        ppu.clear_interrupt_flag();
+    }
+
+    pub fn interrupt_enable(&self) -> u8 {
+        self.interrupt_enable
+    }
+
+    pub fn interrupt_flag(&self) -> u8 {
+        self.interrupt_flag
+    }
+
+    pub fn set_interrupt_flag(&mut self, flag: u8) {
+        self.interrupt_flag = flag;
     }
 
     pub fn read_byte(&self, addr: u16) -> u8 {
@@ -28,7 +53,9 @@ impl Mmu {
             0xff00 => 0xff,
             0xff40..=0xff45 | 0xff47..=0xff4b => self.ppu.borrow().read_byte(addr),
             0xfe00..=0xfe9f => self.ppu.borrow().read_byte(addr),
+            0xff0f => self.interrupt_flag,
             0xff50 => self.cartridge.read_byte(addr),
+            0xffff => self.interrupt_enable,
             _ => self.memory[addr as usize],
         }
     }
@@ -39,7 +66,9 @@ impl Mmu {
             0x8000..=0x9fff => self.ppu.borrow_mut().write_byte(addr, value),
             0xff40..=0xff45 | 0xff47..=0xff4b => self.ppu.borrow_mut().write_byte(addr, value),
             0xfe00..=0xfe9f => self.ppu.borrow_mut().write_byte(addr, value),
+            0xff0f => self.interrupt_flag = value,
             0xff50 => self.cartridge.write_byte(addr, value),
+            0xffff => self.interrupt_enable = value,
             _ => self.memory[addr as usize] = value,
         }
     }

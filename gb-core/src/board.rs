@@ -9,6 +9,7 @@ use crate::ppu::{Color, Ppu, HEIGHT, WIDTH};
 pub struct Board {
     cpu: Cpu,
     ppu: Rc<RefCell<Ppu>>,
+    mmu: Rc<RefCell<Mmu>>,
     ticks: usize,
 }
 
@@ -21,7 +22,12 @@ impl Board {
 
         let mmu = Rc::new(RefCell::new(mmu));
         let cpu = Cpu::new(Rc::clone(&mmu));
-        Self { cpu, ppu, ticks: 0 }
+        Self {
+            cpu,
+            ppu,
+            mmu,
+            ticks: 0,
+        }
     }
 
     /// Creates a board which doesn't have a boot rom.
@@ -66,14 +72,19 @@ impl Board {
 
         let mmu = Rc::new(RefCell::new(mmu));
         let cpu = Cpu::no_boot(Rc::clone(&mmu));
-        Self { cpu, ppu, ticks: 0 }
+        Self {
+            cpu,
+            ppu,
+            mmu,
+            ticks: 0,
+        }
     }
 
     pub fn step(&mut self) {
         let mut leftticks = (70224 - self.ticks) as isize;
         while leftticks > 0 {
             let steps = self.cpu.step();
-            self.ppu.borrow_mut().step(steps);
+            self.mmu.borrow_mut().step(steps);
             leftticks -= steps as isize;
         }
         self.ticks = leftticks.abs() as usize;

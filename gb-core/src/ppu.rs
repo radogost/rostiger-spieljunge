@@ -80,6 +80,9 @@ pub(crate) struct Ppu {
     // emulator internal position of the current processed row (includes OAM and HBlank mode)
     clock: usize,
 
+    // ppu specific interrupt flag
+    interrupt_flag: u8,
+
     screen: [[Color; WIDTH]; HEIGHT],
 }
 
@@ -100,12 +103,21 @@ impl Ppu {
             obp0: 0,
             obp1: 0,
             clock: 0,
+            interrupt_flag: 0,
             screen: [[Color::white(); WIDTH]; HEIGHT],
         }
     }
 
     pub fn frame(&self) -> [[Color; WIDTH]; HEIGHT] {
         self.screen
+    }
+
+    pub fn interrupt_flag(&self) -> u8 {
+        self.interrupt_flag
+    }
+
+    pub fn clear_interrupt_flag(&mut self) {
+        self.interrupt_flag = 0;
     }
 
     /// The emulator is driven by the CPU and the other components have to catch up.
@@ -122,6 +134,9 @@ impl Ppu {
         self.clock += 1;
         if self.clock == 456 {
             self.ly += 1;
+            if self.ly == 144 {
+                self.interrupt_flag |= 0x01;
+            }
             self.clock = 0;
         }
 
