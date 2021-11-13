@@ -1,5 +1,6 @@
 mod alu;
 mod board;
+mod cartridge;
 mod cpu;
 mod mmu;
 mod ppu;

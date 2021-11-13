@@ -1,6 +1,7 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
+use crate::cartridge::Cartridge;
 use crate::cpu::Cpu;
 use crate::mmu::Mmu;
 use crate::ppu::{Color, Ppu, HEIGHT, WIDTH};
@@ -12,16 +13,11 @@ pub struct Board {
 }
 
 impl Board {
-    pub fn new(boot: &[u8], cartridge: &[u8]) -> Self {
+    pub fn new(boot: &[u8], game: &[u8]) -> Self {
         let ppu = Rc::new(RefCell::new(Ppu::new()));
 
-        let mut mmu = Mmu::new(Rc::clone(&ppu));
-        for (addr, byte) in cartridge.iter().enumerate() {
-            mmu.write_byte(addr as u16, *byte);
-        }
-        for (addr, byte) in boot.iter().enumerate() {
-            mmu.write_byte(addr as u16, *byte);
-        }
+        let cartridge = Cartridge::new(boot, game);
+        let mmu = Mmu::new(Rc::clone(&ppu), cartridge);
 
         let mmu = Rc::new(RefCell::new(mmu));
         let cpu = Cpu::new(Rc::clone(&mmu));
@@ -31,13 +27,11 @@ impl Board {
     /// Creates a board which doesn't have a boot rom.
     /// The memory and registers will be initialized such as if the execution
     /// of the boot rom just ended
-    pub fn no_boot(cartridge: &[u8]) -> Self {
+    pub fn no_boot(game: &[u8]) -> Self {
+        let cartridge = Cartridge::no_boot(game);
         let ppu = Rc::new(RefCell::new(Ppu::new()));
 
-        let mut mmu = Mmu::new(Rc::clone(&ppu));
-        for (addr, byte) in cartridge.iter().enumerate() {
-            mmu.write_byte(addr as u16, *byte);
-        }
+        let mut mmu = Mmu::new(Rc::clone(&ppu), cartridge);
 
         mmu.write_byte(0xff05, 0);
         mmu.write_byte(0xff06, 0);
@@ -46,7 +40,6 @@ impl Board {
         mmu.write_byte(0xff11, 0xbf);
         mmu.write_byte(0xff12, 0xf3);
         mmu.write_byte(0xff14, 0xbf);
-        mmu.write_byte(0xff16, 0x3f);
         mmu.write_byte(0xff16, 0x3f);
         mmu.write_byte(0xff17, 0);
         mmu.write_byte(0xff19, 0xbf);
