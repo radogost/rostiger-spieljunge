@@ -6,6 +6,9 @@ const OAM_SIZE: usize = 0xa0;
 pub const HEIGHT: usize = 144;
 pub const WIDTH: usize = 160;
 
+const OAM_SCAN_END: usize = 80;
+const TRANSFER_END: usize = OAM_SCAN_END + 172;
+
 enum Mode {
     HBlank,
     VBlank,
@@ -77,7 +80,7 @@ pub(crate) struct Ppu {
     obp0: u8, // gray shades of objects
     obp1: u8, // gray shades of objects
 
-    // emulator internal position of the current processed row (includes OAM and HBlank mode)
+    // emulator internal position of the current mode
     clock: usize,
 
     // ppu specific interrupt flag
@@ -131,36 +134,28 @@ impl Ppu {
     }
 
     fn single_step(&mut self) {
-        self.clock += 1;
-        if self.clock == 456 {
-            self.ly += 1;
-            if self.ly == 144 {
+        self.clock = (self.clock + 1) % 456;
+        if self.clock == 0 {
+            self.ly = (self.ly + 1) % 154;
+            self.set_lyc_ly_flag();
+        }
+
+        match (self.clock, self.ly as usize) {
+            (0, 0..HEIGHT) => {
+                self.set_mode(Mode::OAMSearch);
+            }
+            (OAM_SCAN_END, 0..HEIGHT) => {
+                self.set_mode(Mode::Transfer);
+            }
+            (TRANSFER_END, 0..HEIGHT) => {
+                self.set_mode(Mode::HBlank);
+                self.draw_line();
+            }
+            (0, HEIGHT) => {
+                self.set_mode(Mode::VBlank);
                 self.interrupt_flag |= 0x01;
             }
-            self.clock = 0;
-        }
-
-        self.set_lyc_ly_flag();
-
-        if self.ly == 154 {
-            self.ly = 0;
-        } else if self.ly > 143 {
-            self.set_mode(Mode::VBlank);
-            return;
-        }
-
-        if self.clock < 80 {
-            self.set_mode(Mode::OAMSearch);
-        } else if self.clock < 252 {
-            self.set_mode(Mode::Transfer);
-            if self.clock == 251 && (self.ly as usize) < HEIGHT {
-                for x in 0..WIDTH {
-                    let y = self.ly;
-                    self.draw_background(x as u8, y);
-                }
-            }
-        } else {
-            self.set_mode(Mode::HBlank);
+            _ => {}
         }
     }
 
@@ -296,22 +291,24 @@ impl Ppu {
         }
     }
 
-    fn draw_background(&mut self, x: u8, y: u8) {
-        let pixel_x = x as u16 + self.scx as u16;
-        let pixel_y = y as u16 + self.scy as u16;
-        if pixel_y >= 256 || pixel_x >= 256 {
-            self.screen[y as usize][x as usize] = Color::white();
-            return;
+    fn draw_line(&mut self) {
+        self.draw_background_line();
+    }
+
+    fn draw_background_line(&mut self) {
+        let y = self.ly;
+        for x in 0..WIDTH {
+            let pixel_x = (x as u16 + self.scx as u16) % 256;
+            let pixel_y = (y as u16 + self.scy as u16) % 256;
+
+            let tile_map_index = (pixel_x / 8) + 32 * (pixel_y / 8);
+            let tile_map_base = self.bg_tile_map_base();
+            let tile_id = self.read_byte(tile_map_base + tile_map_index);
+
+            let tile_x = pixel_x % 8;
+            let tile_y = pixel_y % 8;
+            let color = self.bg_window_color(tile_id, tile_x as u8, tile_y as u8);
+            self.screen[y as usize][x as usize] = color;
         }
-
-        let tile_map_index = pixel_x / 8 + 32 * (pixel_y / 8);
-        let tile_map_base = self.bg_tile_map_base();
-        let tile_id = self.read_byte(tile_map_base + tile_map_index);
-
-        let tile_x = x % 8;
-        let tile_y = y % 8;
-
-        let color = self.bg_window_color(tile_id, tile_x, tile_y);
-        self.screen[y as usize][x as usize] = color;
     }
 }

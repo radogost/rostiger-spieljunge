@@ -1,3 +1,5 @@
+#![feature(exclusive_range_pattern)]
+
 mod alu;
 mod board;
 mod cartridge;
