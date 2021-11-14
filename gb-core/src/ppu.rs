@@ -153,7 +153,6 @@ impl Ppu {
             }
             (0, HEIGHT) => {
                 self.set_mode(Mode::VBlank);
-                self.interrupt_flag |= 0x01;
             }
             _ => {}
         }
@@ -204,19 +203,36 @@ impl Ppu {
     }
 
     fn set_mode(&mut self, mode: Mode) {
-        let mask = match mode {
-            Mode::HBlank => 0,
-            Mode::VBlank => 1,
-            Mode::OAMSearch => 2,
-            Mode::Transfer => 3,
+        let (fire_stat_interrupt, mask) = match mode {
+            Mode::HBlank => {
+                let interrupt = (self.stat & (1 << 3)) != 0;
+                (interrupt, 0)
+            }
+            Mode::VBlank => {
+                self.interrupt_flag |= 0x01;
+                let interrupt = (self.stat & (1 << 4)) != 0;
+                (interrupt, 1)
+            }
+            Mode::OAMSearch => {
+                let interrupt = (self.stat & (1 << 5)) != 0;
+                (interrupt, 2)
+            }
+            Mode::Transfer => (false, 3),
         };
         self.stat = (self.stat & 0xfc) | mask;
+        if fire_stat_interrupt {
+            self.interrupt_flag |= 0x02;
+        }
     }
 
     fn set_lyc_ly_flag(&mut self) {
-        match self.lyc == self.ly {
-            true => self.stat |= 1 << 2,
-            false => self.stat &= !(1 << 2),
+        if self.lyc == self.ly {
+            self.stat |= 1 << 2;
+            if self.stat & (1 << 6) != 0 {
+                self.interrupt_flag |= 0x02;
+            }
+        } else {
+            self.stat &= !(1 << 2);
         }
     }
 
