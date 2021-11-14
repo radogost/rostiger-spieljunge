@@ -65,6 +65,7 @@ impl Mmu {
             0x0000..=0x7fff => self.cartridge.write_byte(addr, value),
             0x8000..=0x9fff => self.ppu.borrow_mut().write_byte(addr, value),
             0xff40..=0xff45 | 0xff47..=0xff4b => self.ppu.borrow_mut().write_byte(addr, value),
+            0xff46 => self.dma_transfer(value),
             0xfe00..=0xfe9f => self.ppu.borrow_mut().write_byte(addr, value),
             0xff0f => self.interrupt_flag = value,
             0xff50 => self.cartridge.write_byte(addr, value),
@@ -84,5 +85,15 @@ impl Mmu {
         let low = (value & 0xFF) as u8;
         self.write_byte(addr, low);
         self.write_byte(addr + 1, high);
+    }
+
+    fn dma_transfer(&mut self, value: u8) {
+        let high_byte = (value as u16) << 8;
+        for offset in 0u16..=0x9f {
+            let source = high_byte | offset;
+            let destination = 0xfe00 | offset;
+            let byte = self.read_byte(source);
+            self.write_byte(destination, byte);
+        }
     }
 }
