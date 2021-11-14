@@ -16,7 +16,7 @@ enum Mode {
     Transfer,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 pub struct Color {
     pub r: u8,
     pub g: u8,
@@ -268,11 +268,23 @@ impl Ppu {
         }
     }
 
+    fn vertical_sprite_size(&self) -> u8 {
+        if self.lcdc & (1 << 2) == 0 {
+            8
+        } else {
+            16
+        }
+    }
+
+    fn sprites_enabled(&self) -> bool {
+        (self.lcdc & (1 << 1)) != 0
+    }
+
     fn bg_and_window_enabled(&self) -> bool {
         (self.lcdc & 1) != 0
     }
 
-    fn tile_addr(&self, tile_id: u8) -> u16 {
+    fn bg_window_tile_addr(&self, tile_id: u8) -> u16 {
         let tile_id = tile_id as u16;
         let tile_data_base_addr = self.tile_data_base();
         if tile_data_base_addr == 0x8000 {
@@ -284,9 +296,7 @@ impl Ppu {
         }
     }
 
-    fn bg_window_color(&self, tile_id: u8, tile_x: u8, tile_y: u8) -> Color {
-        let tile_addr = self.tile_addr(tile_id);
-
+    fn tile_color_index(&self, tile_addr: u16, tile_x: u8, tile_y: u8) -> u8 {
         let offset = (tile_y * 2) as u16;
         let low_byte = self.read_byte(tile_addr + offset);
         let high_byte = self.read_byte(tile_addr + offset + 1);
@@ -294,7 +304,13 @@ impl Ppu {
         let low = (low_byte >> (7 - tile_x)) & 1;
         let high = ((high_byte >> (7 - tile_x)) & 1) << 1;
 
-        let color_index = high | low;
+        high | low
+    }
+
+    fn bg_window_color(&self, tile_id: u8, tile_x: u8, tile_y: u8) -> Color {
+        let tile_addr = self.bg_window_tile_addr(tile_id);
+
+        let color_index = self.tile_color_index(tile_addr, tile_x, tile_y);
         let color_value = (self.bgp >> (2 * color_index)) & 0x03;
 
         match color_value {
@@ -315,6 +331,9 @@ impl Ppu {
         if self.bg_and_window_enabled() {
             self.draw_background_line();
             self.draw_window_line();
+        }
+        if self.sprites_enabled() {
+            self.draw_sprites();
         }
     }
 
@@ -354,6 +373,92 @@ impl Ppu {
             let tile_y = pixel_y % 8;
             let color = self.bg_window_color(tile_id, tile_x as u8, tile_y as u8);
             self.screen[y as usize][x as usize] = color;
+        }
+    }
+
+    fn draw_sprites(&mut self) {
+        let y = self.ly;
+        let tile_y_size = self.vertical_sprite_size();
+
+        for sprite in 0..40 {
+            let sprite_base_addr = 0xfe00 + 4 * sprite;
+            let y_pos = self.read_byte(sprite_base_addr);
+            let x_pos = self.read_byte(sprite_base_addr + 1);
+
+            if y + 16 < y_pos {
+                continue;
+            }
+            let tile_y = y + 16 - y_pos;
+            if tile_y >= tile_y_size {
+                continue;
+            }
+
+            let tile_id = self.read_byte(sprite_base_addr + 2);
+            let attributes = self.read_byte(sprite_base_addr + 3);
+
+            let palette_number = (attributes >> 4) & 1;
+            let x_flip = (attributes & (1 << 5)) != 0;
+            let y_flip = (attributes & (1 << 6)) != 0;
+            let bg_over_sprite = (attributes & (1 << 7)) != 0;
+
+            let palette = if palette_number == 0 {
+                self.obp0
+            } else {
+                self.obp1
+            };
+
+            let tile_y = if y_flip {
+                tile_y_size - tile_y - 1
+            } else {
+                tile_y
+            };
+
+            let tile_id = if tile_y_size == 8 {
+                tile_id
+            } else {
+                if tile_y < 8 {
+                    tile_id & 0xfe
+                } else {
+                    tile_id | 1
+                }
+            } as u16;
+
+            for x in 0..WIDTH {
+                if bg_over_sprite && self.screen[y as usize][x as usize] != Color::white() {
+                    continue;
+                }
+                let x = x as u8;
+                if x + 8 < x_pos {
+                    continue;
+                }
+
+                let tile_x = x + 8 - x_pos;
+                if tile_x >= 8 {
+                    continue;
+                }
+
+                let tile_x = if x_flip { 7 - tile_x } else { tile_x };
+
+                let tile_addr = 0x8000 + tile_id * 16;
+                let color_index = self.tile_color_index(tile_addr, tile_x, tile_y);
+                if color_index == 0 {
+                    // transparent
+                    continue;
+                }
+
+                let color_value = (palette >> (2 * color_index)) & 0x03;
+                let color = match color_value {
+                    0x00 => Color::white(),
+                    0x01 => Color::lightgrey(),
+                    0x02 => Color::darkgrey(),
+                    0x03 => Color::black(),
+                    _ => {
+                        unreachable!();
+                    }
+                };
+
+                self.screen[y as usize][x as usize] = color;
+            }
         }
     }
 }
