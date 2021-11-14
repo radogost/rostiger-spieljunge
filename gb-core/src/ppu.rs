@@ -252,6 +252,10 @@ impl Ppu {
         }
     }
 
+    fn bg_and_window_enabled(&self) -> bool {
+        (self.lcdc & 1) != 0
+    }
+
     fn tile_addr(&self, tile_id: u8) -> u16 {
         let tile_id = tile_id as u16;
         let tile_data_base_addr = self.tile_data_base();
@@ -292,7 +296,10 @@ impl Ppu {
     }
 
     fn draw_line(&mut self) {
-        self.draw_background_line();
+        if self.bg_and_window_enabled() {
+            self.draw_background_line();
+            self.draw_window_line();
+        }
     }
 
     fn draw_background_line(&mut self) {
@@ -303,6 +310,28 @@ impl Ppu {
 
             let tile_map_index = (pixel_x / 8) + 32 * (pixel_y / 8);
             let tile_map_base = self.bg_tile_map_base();
+            let tile_id = self.read_byte(tile_map_base + tile_map_index);
+
+            let tile_x = pixel_x % 8;
+            let tile_y = pixel_y % 8;
+            let color = self.bg_window_color(tile_id, tile_x as u8, tile_y as u8);
+            self.screen[y as usize][x as usize] = color;
+        }
+    }
+
+    fn draw_window_line(&mut self) {
+        if !self.window_enabled() || self.ly < self.wy {
+            return;
+        }
+
+        let y = self.ly;
+        let window_start = (if self.wx < 7 { 0 } else { self.wx - 7 }) as usize;
+        for x in window_start..WIDTH {
+            let pixel_x = x as u16 + 7 - self.wx as u16;
+            let pixel_y = (y - self.wy) as u16;
+
+            let tile_map_index = (pixel_x / 8) + 32 * (pixel_y / 8);
+            let tile_map_base = self.window_tile_map_base();
             let tile_id = self.read_byte(tile_map_base + tile_map_index);
 
             let tile_x = pixel_x % 8;
