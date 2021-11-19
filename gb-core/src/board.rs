@@ -92,4 +92,8 @@ impl Board {
     pub fn button_pressed(&mut self, button: Button) {
         self.joypad.borrow_mut().button_pressed(button);
     }
+
+    pub fn button_released(&mut self, button: Button) {
+        self.joypad.borrow_mut().button_released(button);
+    }
 }

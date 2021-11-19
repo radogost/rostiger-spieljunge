@@ -41,6 +41,19 @@ impl JoyPad {
         self.interrupt_flag = 1;
     }
 
+    pub fn button_released(&mut self, button: Button) {
+        match button {
+            Button::Right => self.direction_buttons |= 1 << 0,
+            Button::Left => self.direction_buttons |= 1 << 1,
+            Button::Up => self.direction_buttons |= 1 << 2,
+            Button::Down => self.direction_buttons |= 1 << 3,
+            Button::A => self.action_buttons |= 1 << 0,
+            Button::B => self.action_buttons |= 1 << 1,
+            Button::Select => self.action_buttons |= 1 << 2,
+            Button::Start => self.action_buttons |= 1 << 3,
+        }
+    }
+
     pub fn interrupt_flag(&self) -> u8 {
         self.interrupt_flag
     }

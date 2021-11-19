@@ -26,6 +26,20 @@ struct GameBoy {
     param: graphics::DrawParam,
 }
 
+fn keycode_to_button(keycode: keyboard::KeyCode) -> Option<Button> {
+    match keycode {
+        keyboard::KeyCode::A => Some(Button::A),
+        keyboard::KeyCode::F => Some(Button::B),
+        keyboard::KeyCode::Left => Some(Button::Left),
+        keyboard::KeyCode::Right => Some(Button::Right),
+        keyboard::KeyCode::Up => Some(Button::Up),
+        keyboard::KeyCode::Down => Some(Button::Down),
+        keyboard::KeyCode::Return => Some(Button::Start),
+        keyboard::KeyCode::Space => Some(Button::Select),
+        _ => None,
+    }
+}
+
 impl GameBoy {
     fn new(board: Board) -> Self {
         let scale = graphics::mint::Vector2 { x: 2.0, y: 2.0 };
@@ -53,20 +67,20 @@ impl ggez::event::EventHandler<ggez::GameError> for GameBoy {
         _keymods: keyboard::KeyMods,
         _repeat: bool,
     ) {
-        let button = match keycode {
-            keyboard::KeyCode::A => Button::A,
-            keyboard::KeyCode::F => Button::B,
-            keyboard::KeyCode::Left => Button::Left,
-            keyboard::KeyCode::Right => Button::Right,
-            keyboard::KeyCode::Up => Button::Up,
-            keyboard::KeyCode::Down => Button::Down,
-            keyboard::KeyCode::Return => Button::Start,
-            keyboard::KeyCode::Space => Button::Select,
-            _ => {
-                return;
-            }
-        };
-        self.board.button_pressed(button);
+        if let Some(button) = keycode_to_button(keycode) {
+            self.board.button_pressed(button);
+        }
+    }
+
+    fn key_up_event(
+        &mut self,
+        _ctx: &mut Context,
+        keycode: keyboard::KeyCode,
+        _keymods: keyboard::KeyMods,
+    ) {
+        if let Some(button) = keycode_to_button(keycode) {
+            self.board.button_released(button);
+        }
     }
 
     fn draw(&mut self, ctx: &mut Context) -> GameResult {
