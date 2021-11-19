@@ -13,6 +13,7 @@ pub(crate) struct Mmu {
 
     interrupt_enable: u8,
     interrupt_flag: u8,
+    joyp: u8, // joypad
 }
 
 impl Mmu {
@@ -23,6 +24,7 @@ impl Mmu {
             memory: [0; MEMORY_SIZE],
             interrupt_enable: 0,
             interrupt_flag: 0,
+            joyp: 0xff,
         }
     }
 
@@ -50,7 +52,7 @@ impl Mmu {
         match addr {
             0x0000..=0x7fff => self.cartridge.read_byte(addr),
             0x8000..=0x9fff => self.ppu.borrow().read_byte(addr),
-            0xff00 => 0xff,
+            0xff00 => self.joyp,
             0xff40..=0xff45 | 0xff47..=0xff4b => self.ppu.borrow().read_byte(addr),
             0xfe00..=0xfe9f => self.ppu.borrow().read_byte(addr),
             0xff0f => self.interrupt_flag,
@@ -64,6 +66,13 @@ impl Mmu {
         match addr {
             0x0000..=0x7fff => self.cartridge.write_byte(addr, value),
             0x8000..=0x9fff => self.ppu.borrow_mut().write_byte(addr, value),
+            0xff00 => {
+                if (value & 0xf) == 0 {
+                    return;
+                }
+                self.joyp = value;
+                self.interrupt_flag |= 1;
+            }
             0xff40..=0xff45 | 0xff47..=0xff4b => self.ppu.borrow_mut().write_byte(addr, value),
             0xff46 => self.dma_transfer(value),
             0xfe00..=0xfe9f => self.ppu.borrow_mut().write_byte(addr, value),

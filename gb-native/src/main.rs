@@ -5,9 +5,9 @@ use std::path::PathBuf;
 #[macro_use]
 extern crate clap;
 
-use ggez::{event, graphics, timer, Context, GameResult};
+use ggez::{event, graphics, input::keyboard, timer, Context, GameResult};
 
-use gb_core::{Board, HEIGHT, WIDTH};
+use gb_core::{Board, Button, HEIGHT, WIDTH};
 
 const PIXEL_SIZE: i32 = 2;
 
@@ -44,6 +44,29 @@ impl ggez::event::EventHandler<ggez::GameError> for GameBoy {
             self.board.step();
         }
         Ok(())
+    }
+
+    fn key_down_event(
+        &mut self,
+        _ctx: &mut Context,
+        keycode: keyboard::KeyCode,
+        _keymods: keyboard::KeyMods,
+        _repeat: bool,
+    ) {
+        let button = match keycode {
+            keyboard::KeyCode::A => Button::A,
+            keyboard::KeyCode::F => Button::B,
+            keyboard::KeyCode::Left => Button::Left,
+            keyboard::KeyCode::Right => Button::Right,
+            keyboard::KeyCode::Up => Button::Up,
+            keyboard::KeyCode::Down => Button::Down,
+            keyboard::KeyCode::Return => Button::Start,
+            keyboard::KeyCode::Space => Button::Select,
+            _ => {
+                return;
+            }
+        };
+        self.board.button_pressed(button);
     }
 
     fn draw(&mut self, ctx: &mut Context) -> GameResult {

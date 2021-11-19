@@ -8,5 +8,5 @@ mod mmu;
 mod ppu;
 mod registers;
 
-pub use board::Board;
+pub use board::{Board, Button};
 pub use ppu::{Color, HEIGHT, WIDTH};

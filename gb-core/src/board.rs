@@ -6,6 +6,17 @@ use crate::cpu::Cpu;
 use crate::mmu::Mmu;
 use crate::ppu::{Color, Ppu, HEIGHT, WIDTH};
 
+pub enum Button {
+    Up,
+    Down,
+    Left,
+    Right,
+    Start,
+    Select,
+    A,
+    B,
+}
+
 pub struct Board {
     cpu: Cpu,
     ppu: Rc<RefCell<Ppu>>,
@@ -92,5 +103,19 @@ impl Board {
 
     pub fn frame(&self) -> [[Color; WIDTH]; HEIGHT] {
         self.ppu.borrow().frame()
+    }
+
+    pub fn button_pressed(&mut self, button: Button) {
+        let joyp = match button {
+            Button::Down => 0b11100111,
+            Button::Up => 0b11101011,
+            Button::Left => 0b11101101,
+            Button::Right => 0b11101110,
+            Button::Start => 0b11100111,
+            Button::Select => 0b11101011,
+            Button::A => 0b11101101,
+            Button::B => 0b11101110,
+        };
+        self.mmu.borrow_mut().write_byte(0xff00, joyp);
     }
 }
