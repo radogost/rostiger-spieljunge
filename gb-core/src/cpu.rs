@@ -7039,6 +7039,7 @@ mod tests {
     use std::rc::Rc;
 
     use crate::cartridge::Cartridge;
+    use crate::joypad::JoyPad;
     use crate::mmu::Mmu;
     use crate::ppu::Ppu;
 
@@ -7048,8 +7049,9 @@ mod tests {
     fn push_pop() {
         let mock_game = [0u8; 0];
         let ppu = Rc::new(RefCell::new(Ppu::new()));
+        let joypad = Rc::new(RefCell::new(JoyPad::new()));
         let cartridge = Cartridge::no_boot(&mock_game);
-        let mmu = Rc::new(RefCell::new(Mmu::new(ppu, cartridge)));
+        let mmu = Rc::new(RefCell::new(Mmu::new(ppu, joypad, cartridge)));
         let mut cpu = Cpu::new(mmu);
         cpu.registers.set_sp(0xfffe);
 

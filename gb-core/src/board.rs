@@ -3,33 +3,25 @@ use std::rc::Rc;
 
 use crate::cartridge::Cartridge;
 use crate::cpu::Cpu;
+use crate::joypad::{Button, JoyPad};
 use crate::mmu::Mmu;
 use crate::ppu::{Color, Ppu, HEIGHT, WIDTH};
-
-pub enum Button {
-    Up,
-    Down,
-    Left,
-    Right,
-    Start,
-    Select,
-    A,
-    B,
-}
 
 pub struct Board {
     cpu: Cpu,
     ppu: Rc<RefCell<Ppu>>,
     mmu: Rc<RefCell<Mmu>>,
+    joypad: Rc<RefCell<JoyPad>>,
     ticks: usize,
 }
 
 impl Board {
     pub fn new(boot: &[u8], game: &[u8]) -> Self {
         let ppu = Rc::new(RefCell::new(Ppu::new()));
+        let joypad = Rc::new(RefCell::new(JoyPad::new()));
 
         let cartridge = Cartridge::new(boot, game);
-        let mmu = Mmu::new(Rc::clone(&ppu), cartridge);
+        let mmu = Mmu::new(Rc::clone(&ppu), Rc::clone(&joypad), cartridge);
 
         let mmu = Rc::new(RefCell::new(mmu));
         let cpu = Cpu::new(Rc::clone(&mmu));
@@ -37,6 +29,7 @@ impl Board {
             cpu,
             ppu,
             mmu,
+            joypad,
             ticks: 0,
         }
     }
@@ -47,39 +40,29 @@ impl Board {
     pub fn no_boot(game: &[u8]) -> Self {
         let cartridge = Cartridge::no_boot(game);
         let ppu = Rc::new(RefCell::new(Ppu::new()));
+        let joypad = Rc::new(RefCell::new(JoyPad::new()));
 
-        let mut mmu = Mmu::new(Rc::clone(&ppu), cartridge);
+        let mut mmu = Mmu::new(Rc::clone(&ppu), Rc::clone(&joypad), cartridge);
 
-        mmu.write_byte(0xff05, 0);
-        mmu.write_byte(0xff06, 0);
-        mmu.write_byte(0xff07, 0);
         mmu.write_byte(0xff10, 0x80);
         mmu.write_byte(0xff11, 0xbf);
         mmu.write_byte(0xff12, 0xf3);
         mmu.write_byte(0xff14, 0xbf);
         mmu.write_byte(0xff16, 0x3f);
-        mmu.write_byte(0xff17, 0);
         mmu.write_byte(0xff19, 0xbf);
         mmu.write_byte(0xff1a, 0x7f);
         mmu.write_byte(0xff1b, 0xff);
         mmu.write_byte(0xff1c, 0x9f);
         mmu.write_byte(0xff1e, 0xff);
         mmu.write_byte(0xff20, 0xff);
-        mmu.write_byte(0xff21, 0);
-        mmu.write_byte(0xff22, 0);
         mmu.write_byte(0xff23, 0xbf);
         mmu.write_byte(0xff24, 0x77);
         mmu.write_byte(0xff25, 0xf3);
         mmu.write_byte(0xff26, 0xf1);
         mmu.write_byte(0xff40, 0x91);
-        mmu.write_byte(0xff42, 0);
-        mmu.write_byte(0xff43, 0);
-        mmu.write_byte(0xff45, 0);
         mmu.write_byte(0xff47, 0xfc);
         mmu.write_byte(0xff48, 0xff);
         mmu.write_byte(0xff49, 0xff);
-        mmu.write_byte(0xff4a, 0);
-        mmu.write_byte(0xff4b, 0);
 
         let mmu = Rc::new(RefCell::new(mmu));
         let cpu = Cpu::no_boot(Rc::clone(&mmu));
@@ -87,6 +70,7 @@ impl Board {
             cpu,
             ppu,
             mmu,
+            joypad,
             ticks: 0,
         }
     }
@@ -106,16 +90,6 @@ impl Board {
     }
 
     pub fn button_pressed(&mut self, button: Button) {
-        let joyp = match button {
-            Button::Down => 0b11100111,
-            Button::Up => 0b11101011,
-            Button::Left => 0b11101101,
-            Button::Right => 0b11101110,
-            Button::Start => 0b11100111,
-            Button::Select => 0b11101011,
-            Button::A => 0b11101101,
-            Button::B => 0b11101110,
-        };
-        self.mmu.borrow_mut().write_byte(0xff00, joyp);
+        self.joypad.borrow_mut().button_pressed(button);
     }
 }
