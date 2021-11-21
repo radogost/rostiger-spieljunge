@@ -45,10 +45,10 @@ impl Cartridge {
     }
 
     pub fn write_byte(&mut self, addr: u16, val: u8) {
-        if addr == 0xff50 {
-            self.use_boot_rom = false;
-        } else {
-            self.game_data[addr as usize] = val;
+        match addr {
+            0x0000..=0x7fff => {}
+            0xff50 => self.use_boot_rom = false,
+            _ => self.game_data[addr as usize] = val,
         }
     }
 }
