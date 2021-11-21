@@ -1081,7 +1081,7 @@ impl Cpu {
         let carry = self.registers.carry_flag();
 
         let mut adjust = 0;
-        if half_carry || (!negative && (value & 0xf) > 9) {
+        if half_carry || (!negative && (value & 0xf) > 0x9) {
             adjust |= 0x6;
         }
 
@@ -1093,9 +1093,9 @@ impl Cpu {
         };
 
         let new_value = if negative {
-            value - adjust
+            value.wrapping_sub(adjust)
         } else {
-            value + adjust
+            value.wrapping_add(adjust)
         } as u8;
         let new_zero = new_value == 0;
 
