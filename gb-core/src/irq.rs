@@ -23,6 +23,10 @@ impl Irq {
         self.interrupt_flag |= 1 << 1;
     }
 
+    pub fn timer_interrupt(&mut self) {
+        self.interrupt_flag |= 1 << 2;
+    }
+
     pub fn joypad_interrupt(&mut self) {
         self.interrupt_flag |= 1 << 4;
     }

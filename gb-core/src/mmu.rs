@@ -5,10 +5,12 @@ use crate::cartridge::Cartridge;
 use crate::irq::Irq;
 use crate::joypad::JoyPad;
 use crate::ppu::Ppu;
+use crate::timer::Timer;
 
 const MEMORY_SIZE: usize = 0x10000;
 
 pub(crate) struct Mmu {
+    timer: Timer,
     irq: Rc<RefCell<Irq>>,
     ppu: Rc<RefCell<Ppu>>,
     joypad: Rc<RefCell<JoyPad>>,
@@ -25,6 +27,7 @@ impl Mmu {
         cartridge: Cartridge,
     ) -> Self {
         Self {
+            timer: Timer::new(Rc::clone(&irq)),
             irq,
             ppu,
             joypad,
@@ -36,8 +39,9 @@ impl Mmu {
 
     pub fn step(&mut self, steps: u8) {
         let mut ppu = self.ppu.borrow_mut();
-
         ppu.step(steps);
+
+        self.timer.step(steps);
     }
 
     pub fn interrupt_enable(&self) -> u8 {
@@ -51,6 +55,7 @@ impl Mmu {
             0xff00 => self.joypad.borrow().read_byte(),
             0xff40..=0xff45 | 0xff47..=0xff4b => self.ppu.borrow().read_byte(addr),
             0xfe00..=0xfe9f => self.ppu.borrow().read_byte(addr),
+            0xff04..=0xff07 => self.timer.read_byte(addr),
             0xff0f => self.irq.borrow().interrupt_flag(),
             0xff50 => self.cartridge.read_byte(addr),
             0xffff => self.interrupt_enable,
@@ -66,6 +71,7 @@ impl Mmu {
             0xff40..=0xff45 | 0xff47..=0xff4b => self.ppu.borrow_mut().write_byte(addr, value),
             0xff46 => self.dma_transfer(value),
             0xfe00..=0xfe9f => self.ppu.borrow_mut().write_byte(addr, value),
+            0xff04..=0xff07 => self.timer.write_byte(addr, value),
             0xff0f => self.irq.borrow_mut().set_interrupt_flag(value),
             0xff50 => self.cartridge.write_byte(addr, value),
             0xffff => self.interrupt_enable = value,
