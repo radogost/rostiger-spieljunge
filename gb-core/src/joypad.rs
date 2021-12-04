@@ -1,3 +1,8 @@
+use std::cell::RefCell;
+use std::rc::Rc;
+
+use crate::irq::Irq;
+
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub enum Button {
     Up,
@@ -11,19 +16,19 @@ pub enum Button {
 }
 
 pub(crate) struct JoyPad {
+    irq: Rc<RefCell<Irq>>,
     direction_buttons: u8,
     action_buttons: u8,
     selection_flag: u8,
-    interrupt_flag: u8,
 }
 
 impl JoyPad {
-    pub fn new() -> Self {
+    pub fn new(irq: Rc<RefCell<Irq>>) -> Self {
         Self {
+            irq,
             direction_buttons: 0xf,
             action_buttons: 0xf,
             selection_flag: 0,
-            interrupt_flag: 0,
         }
     }
 
@@ -38,7 +43,7 @@ impl JoyPad {
             Button::Select => self.action_buttons = !(1 << 2),
             Button::Start => self.action_buttons = !(1 << 3),
         }
-        self.interrupt_flag = 1;
+        self.irq.borrow_mut().joypad_interrupt();
     }
 
     pub fn button_released(&mut self, button: Button) {
@@ -52,14 +57,6 @@ impl JoyPad {
             Button::Select => self.action_buttons |= 1 << 2,
             Button::Start => self.action_buttons |= 1 << 3,
         }
-    }
-
-    pub fn interrupt_flag(&self) -> u8 {
-        self.interrupt_flag
-    }
-
-    pub fn clear_interrupt_flag(&mut self) {
-        self.interrupt_flag = 0;
     }
 
     pub fn write_byte(&mut self, value: u8) {

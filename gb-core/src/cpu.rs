@@ -4,11 +4,13 @@ use std::rc::Rc;
 use log::{error, trace};
 
 use crate::alu;
+use crate::irq::Irq;
 use crate::mmu::Mmu;
 use crate::registers::Registers;
 
 pub(crate) struct Cpu {
     registers: Registers,
+    irq: Rc<RefCell<Irq>>,
     mmu: Rc<RefCell<Mmu>>,
 
     // interrupt master enabled flag
@@ -16,16 +18,18 @@ pub(crate) struct Cpu {
 }
 
 impl Cpu {
-    pub fn new(mmu: Rc<RefCell<Mmu>>) -> Self {
+    pub fn new(irq: Rc<RefCell<Irq>>, mmu: Rc<RefCell<Mmu>>) -> Self {
         Cpu {
+            irq,
             registers: Registers::new(),
             mmu,
             ime: false,
         }
     }
 
-    pub fn no_boot(mmu: Rc<RefCell<Mmu>>) -> Self {
+    pub fn no_boot(irq: Rc<RefCell<Irq>>, mmu: Rc<RefCell<Mmu>>) -> Self {
         Cpu {
+            irq,
             registers: Registers::no_boot(),
             mmu,
             ime: false,
@@ -42,7 +46,7 @@ impl Cpu {
 
     fn handle_interrupt(&mut self) -> bool {
         let interrupt_enable = self.mmu.borrow().interrupt_enable();
-        let interrupt_flag = self.mmu.borrow().interrupt_flag();
+        let interrupt_flag = self.irq.borrow().interrupt_flag();
         let interrupts = interrupt_enable & interrupt_flag;
 
         if !self.ime || interrupts == 0 {
@@ -53,7 +57,7 @@ impl Cpu {
 
         let bit = interrupts.trailing_zeros() as u8;
         let interrupt_flag = interrupt_flag & !(1 << bit);
-        self.mmu.borrow_mut().set_interrupt_flag(interrupt_flag);
+        self.irq.borrow_mut().set_interrupt_flag(interrupt_flag);
 
         self.push(self.registers.pc());
         let pc = 0x40 + bit * 0x08;

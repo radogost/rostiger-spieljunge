@@ -3,6 +3,7 @@ use std::rc::Rc;
 
 use crate::cartridge::Cartridge;
 use crate::cpu::Cpu;
+use crate::irq::Irq;
 use crate::joypad::{Button, JoyPad};
 use crate::mmu::Mmu;
 use crate::ppu::{Color, Ppu, HEIGHT, WIDTH};
@@ -17,14 +18,20 @@ pub struct Board {
 
 impl Board {
     pub fn new(boot: &[u8], game: &[u8]) -> Self {
-        let ppu = Rc::new(RefCell::new(Ppu::new()));
-        let joypad = Rc::new(RefCell::new(JoyPad::new()));
+        let irq = Rc::new(RefCell::new(Irq::new()));
+        let ppu = Rc::new(RefCell::new(Ppu::new(Rc::clone(&irq))));
+        let joypad = Rc::new(RefCell::new(JoyPad::new(Rc::clone(&irq))));
 
         let cartridge = Cartridge::new(boot, game);
-        let mmu = Mmu::new(Rc::clone(&ppu), Rc::clone(&joypad), cartridge);
+        let mmu = Mmu::new(
+            Rc::clone(&irq),
+            Rc::clone(&ppu),
+            Rc::clone(&joypad),
+            cartridge,
+        );
 
         let mmu = Rc::new(RefCell::new(mmu));
-        let cpu = Cpu::new(Rc::clone(&mmu));
+        let cpu = Cpu::new(Rc::clone(&irq), Rc::clone(&mmu));
         Self {
             cpu,
             ppu,
@@ -39,10 +46,16 @@ impl Board {
     /// of the boot rom just ended
     pub fn no_boot(game: &[u8]) -> Self {
         let cartridge = Cartridge::no_boot(game);
-        let ppu = Rc::new(RefCell::new(Ppu::new()));
-        let joypad = Rc::new(RefCell::new(JoyPad::new()));
+        let irq = Rc::new(RefCell::new(Irq::new()));
+        let ppu = Rc::new(RefCell::new(Ppu::new(Rc::clone(&irq))));
+        let joypad = Rc::new(RefCell::new(JoyPad::new(Rc::clone(&irq))));
 
-        let mut mmu = Mmu::new(Rc::clone(&ppu), Rc::clone(&joypad), cartridge);
+        let mut mmu = Mmu::new(
+            Rc::clone(&irq),
+            Rc::clone(&ppu),
+            Rc::clone(&joypad),
+            cartridge,
+        );
 
         mmu.write_byte(0xff10, 0x80);
         mmu.write_byte(0xff11, 0xbf);
@@ -65,7 +78,7 @@ impl Board {
         mmu.write_byte(0xff49, 0xff);
 
         let mmu = Rc::new(RefCell::new(mmu));
-        let cpu = Cpu::no_boot(Rc::clone(&mmu));
+        let cpu = Cpu::no_boot(Rc::clone(&irq), Rc::clone(&mmu));
         Self {
             cpu,
             ppu,

@@ -4,6 +4,7 @@ mod alu;
 mod board;
 mod cartridge;
 mod cpu;
+mod irq;
 mod joypad;
 mod mmu;
 mod ppu;

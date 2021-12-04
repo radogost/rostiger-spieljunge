@@ -1,4 +1,9 @@
+use std::cell::RefCell;
+use std::rc::Rc;
+
 use log::error;
+
+use crate::irq::Irq;
 
 const VRAM_SIZE: usize = 0x4000;
 const OAM_SIZE: usize = 0xa0;
@@ -55,6 +60,8 @@ impl Color {
 
 /// Picture Processing Unit
 pub(crate) struct Ppu {
+    irq: Rc<RefCell<Irq>>,
+
     // video ram
     vram: [u8; VRAM_SIZE],
 
@@ -83,15 +90,13 @@ pub(crate) struct Ppu {
     // emulator internal position of the current mode
     clock: usize,
 
-    // ppu specific interrupt flag
-    interrupt_flag: u8,
-
     screen: [[Color; WIDTH]; HEIGHT],
 }
 
 impl Ppu {
-    pub fn new() -> Self {
+    pub fn new(irq: Rc<RefCell<Irq>>) -> Self {
         Self {
+            irq,
             vram: [0; VRAM_SIZE],
             oam: [0; OAM_SIZE],
             lcdc: 0,
@@ -106,21 +111,12 @@ impl Ppu {
             obp0: 0,
             obp1: 0,
             clock: 0,
-            interrupt_flag: 0,
             screen: [[Color::white(); WIDTH]; HEIGHT],
         }
     }
 
     pub fn frame(&self) -> [[Color; WIDTH]; HEIGHT] {
         self.screen
-    }
-
-    pub fn interrupt_flag(&self) -> u8 {
-        self.interrupt_flag
-    }
-
-    pub fn clear_interrupt_flag(&mut self) {
-        self.interrupt_flag = 0;
     }
 
     /// The emulator is driven by the CPU and the other components have to catch up.
@@ -209,7 +205,7 @@ impl Ppu {
                 (interrupt, 0)
             }
             Mode::VBlank => {
-                self.interrupt_flag |= 0x01;
+                self.irq.borrow_mut().vblank_interrupt();
                 let interrupt = (self.stat & (1 << 4)) != 0;
                 (interrupt, 1)
             }
@@ -221,7 +217,7 @@ impl Ppu {
         };
         self.stat = (self.stat & 0xfc) | mask;
         if fire_stat_interrupt {
-            self.interrupt_flag |= 0x02;
+            self.irq.borrow_mut().lcd_stat_interrupt();
         }
     }
 
@@ -229,7 +225,7 @@ impl Ppu {
         if self.lyc == self.ly {
             self.stat |= 1 << 2;
             if self.stat & (1 << 6) != 0 {
-                self.interrupt_flag |= 0x02;
+                self.irq.borrow_mut().lcd_stat_interrupt();
             }
         } else {
             self.stat &= !(1 << 2);
