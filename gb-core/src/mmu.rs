@@ -5,12 +5,14 @@ use crate::cartridge::Cartridge;
 use crate::irq::Irq;
 use crate::joypad::JoyPad;
 use crate::ppu::Ppu;
+use crate::sound::Apu;
 use crate::timer::Timer;
 
 const MEMORY_SIZE: usize = 0x10000;
 
 pub(crate) struct Mmu {
     timer: Timer,
+    apu: Rc<RefCell<Apu>>,
     irq: Rc<RefCell<Irq>>,
     ppu: Rc<RefCell<Ppu>>,
     joypad: Rc<RefCell<JoyPad>>,
@@ -21,6 +23,7 @@ pub(crate) struct Mmu {
 
 impl Mmu {
     pub fn new(
+        apu: Rc<RefCell<Apu>>,
         irq: Rc<RefCell<Irq>>,
         ppu: Rc<RefCell<Ppu>>,
         joypad: Rc<RefCell<JoyPad>>,
@@ -28,6 +31,7 @@ impl Mmu {
     ) -> Self {
         Self {
             timer: Timer::new(Rc::clone(&irq)),
+            apu,
             irq,
             ppu,
             joypad,
@@ -52,11 +56,12 @@ impl Mmu {
         match addr {
             0x0000..=0x7fff => self.cartridge.read_byte(addr),
             0x8000..=0x9fff => self.ppu.borrow().read_byte(addr),
-            0xff00 => self.joypad.borrow().read_byte(),
-            0xff40..=0xff45 | 0xff47..=0xff4b => self.ppu.borrow().read_byte(addr),
             0xfe00..=0xfe9f => self.ppu.borrow().read_byte(addr),
+            0xff00 => self.joypad.borrow().read_byte(),
             0xff04..=0xff07 => self.timer.read_byte(addr),
             0xff0f => self.irq.borrow().interrupt_flag(),
+            0xff10..=0xff26 | 0xff30..=0xff3f => self.apu.borrow().read_byte(addr),
+            0xff40..=0xff45 | 0xff47..=0xff4b => self.ppu.borrow().read_byte(addr),
             0xff50 => self.cartridge.read_byte(addr),
             0xffff => self.interrupt_enable,
             _ => self.memory[addr as usize],
@@ -67,12 +72,13 @@ impl Mmu {
         match addr {
             0x0000..=0x7fff => self.cartridge.write_byte(addr, value),
             0x8000..=0x9fff => self.ppu.borrow_mut().write_byte(addr, value),
-            0xff00 => self.joypad.borrow_mut().write_byte(value),
-            0xff40..=0xff45 | 0xff47..=0xff4b => self.ppu.borrow_mut().write_byte(addr, value),
-            0xff46 => self.dma_transfer(value),
             0xfe00..=0xfe9f => self.ppu.borrow_mut().write_byte(addr, value),
+            0xff00 => self.joypad.borrow_mut().write_byte(value),
             0xff04..=0xff07 => self.timer.write_byte(addr, value),
             0xff0f => self.irq.borrow_mut().set_interrupt_flag(value),
+            0xff10..=0xff26 | 0xff30..=0xff3f => self.apu.borrow_mut().write_byte(addr, value),
+            0xff40..=0xff45 | 0xff47..=0xff4b => self.ppu.borrow_mut().write_byte(addr, value),
+            0xff46 => self.dma_transfer(value),
             0xff50 => self.cartridge.write_byte(addr, value),
             0xffff => self.interrupt_enable = value,
             _ => self.memory[addr as usize] = value,

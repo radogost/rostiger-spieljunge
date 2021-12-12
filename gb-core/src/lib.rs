@@ -9,6 +9,7 @@ mod joypad;
 mod mmu;
 mod ppu;
 mod registers;
+mod sound;
 mod timer;
 
 pub use board::Board;
