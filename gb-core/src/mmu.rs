@@ -45,6 +45,9 @@ impl Mmu {
         let mut ppu = self.ppu.borrow_mut();
         ppu.step(steps);
 
+        let mut apu = self.apu.borrow_mut();
+        apu.step(steps);
+
         self.timer.step(steps);
     }
 

@@ -15,3 +15,4 @@ mod timer;
 pub use board::Board;
 pub use joypad::Button;
 pub use ppu::{Color, HEIGHT, WIDTH};
+pub use sound::SAMPLE_RATE as AUDIO_SAMPLE_RATE;

@@ -11,6 +11,7 @@ use crate::sound::Apu;
 
 pub struct Board {
     cpu: Cpu,
+    apu: Rc<RefCell<Apu>>,
     ppu: Rc<RefCell<Ppu>>,
     mmu: Rc<RefCell<Mmu>>,
     joypad: Rc<RefCell<JoyPad>>,
@@ -42,6 +43,7 @@ impl Board {
 
         Self {
             cpu,
+            apu,
             ppu,
             mmu,
             joypad,
@@ -99,6 +101,10 @@ impl Board {
 
     pub fn frame(&self) -> [[Color; WIDTH]; HEIGHT] {
         self.ppu.borrow().frame()
+    }
+
+    pub fn audio(&mut self) -> Vec<f32> {
+        self.apu.borrow_mut().audio_buffer()
     }
 
     pub fn button_pressed(&mut self, button: Button) {

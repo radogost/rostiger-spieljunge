@@ -2,13 +2,14 @@ use std::fs::File;
 use std::io::Read;
 use std::path::PathBuf;
 
-use sdl2::event;
-use sdl2::keyboard;
-
 #[macro_use]
 extern crate clap;
 
-use gb_core::{Board, Button, HEIGHT, WIDTH};
+use sdl2::audio;
+use sdl2::event;
+use sdl2::keyboard;
+
+use gb_core::{Board, Button, AUDIO_SAMPLE_RATE, HEIGHT, WIDTH};
 
 const PIXEL_SCALE: usize = 2;
 
@@ -45,6 +46,10 @@ impl GameBoy {
             .collect()
     }
 
+    fn audio(&mut self) -> Vec<f32> {
+        self.board.audio()
+    }
+
     fn button_pressed(&mut self, button: Button) {
         self.board.button_pressed(button);
     }
@@ -53,59 +58,6 @@ impl GameBoy {
         self.board.button_released(button);
     }
 }
-
-//impl ggez::event::EventHandler<ggez::GameError> for GameBoy {
-//    fn update(&mut self, ctx: &mut Context) -> GameResult {
-//        while timer::check_update_time(ctx, DESIRED_FPS) {
-//            self.board.step();
-//        }
-//        Ok(())
-//    }
-//
-//    fn key_down_event(
-//        &mut self,
-//        _ctx: &mut Context,
-//        keycode: keyboard::KeyCode,
-//        _keymods: keyboard::KeyMods,
-//        _repeat: bool,
-//    ) {
-//        if let Some(button) = keycode_to_button(keycode) {
-//            self.board.button_pressed(button);
-//        }
-//    }
-//
-//    fn key_up_event(
-//        &mut self,
-//        _ctx: &mut Context,
-//        keycode: keyboard::KeyCode,
-//        _keymods: keyboard::KeyMods,
-//    ) {
-//        if let Some(button) = keycode_to_button(keycode) {
-//            self.board.button_released(button);
-//        }
-//    }
-//
-//    fn draw(&mut self, ctx: &mut Context) -> GameResult {
-//        graphics::clear(ctx, [0.1, 0.2, 0.3, 1.0].into());
-//
-//        let frame = self.board.frame();
-//        for (y, row) in frame.into_iter().enumerate() {
-//            for (x, color) in row.into_iter().enumerate() {
-//                let idx = (x + y * WIDTH) * 4;
-//                self.screen[idx] = color.r;
-//                self.screen[idx + 1] = color.g;
-//                self.screen[idx + 2] = color.b;
-//                self.screen[idx + 3] = 0xFF;
-//            }
-//        }
-//        let image = graphics::Image::from_rgba8(ctx, WIDTH as u16, HEIGHT as u16, &self.screen)?;
-//        graphics::draw(ctx, &image, self.param)?;
-//
-//        graphics::present(ctx)?;
-//        ggez::timer::yield_now();
-//        Ok(())
-//    }
-//}
 
 fn load_file(path: &str) -> Vec<u8> {
     let path = PathBuf::from(path);
@@ -171,12 +123,24 @@ fn main() -> Result<(), String> {
 
     let mut event_pump = sdl_context.event_pump()?;
 
+    let audio_subsystem = sdl_context.audio()?;
+    let desired_spec = audio::AudioSpecDesired {
+        freq: Some(AUDIO_SAMPLE_RATE as i32),
+        channels: Some(2),
+        samples: Some(4096),
+    };
+    let device = audio_subsystem.open_queue(None, &desired_spec)?;
+    device.resume();
+
     loop {
         let frame = gameboy.next_frame();
         texture.with_lock(None, |buffer, _| buffer.clone_from_slice(frame.as_slice()))?;
         canvas.clear();
         canvas.copy(&texture, None, None)?;
         canvas.present();
+
+        let audio = gameboy.audio();
+        device.queue(&audio);
 
         for event in event_pump.poll_iter() {
             match event {
