@@ -87,7 +87,7 @@ impl Board {
         board
     }
 
-    pub fn step(&mut self) {
+    pub fn run_to_next_frame(&mut self) {
         let mut leftticks = (70224 - self.ticks) as isize;
         while leftticks > 0 {
             let steps = self.cpu.step();
