@@ -1,11 +1,11 @@
 use crate::sound::common::FRAME_TICKS;
 
 pub(in crate::sound) struct PulseSweepChannel {
-    sweep_register: u8,
-    length_pattern_register: u8,
-    volume_envelope_register: u8,
-    frequency_low_register: u8,
-    frequency_high_register: u8,
+    nr10: u8,
+    nr11: u8,
+    nr12: u8,
+    nr13: u8,
+    nr14: u8,
 
     // emulator internal
     enabled: bool,
@@ -17,8 +17,8 @@ pub(in crate::sound) struct PulseSweepChannel {
     // sweep envelope specifics
     sweep_counter: u8,
     // volume envelope specifics
-    active_envelope: bool,
-    envelope_counter: u8,
+    volume_envelope_active: bool,
+    volume_envelope_sweep_counter: u8,
     // counter of cycles in current frame
     frame_counter: u16,
 }
@@ -26,18 +26,18 @@ pub(in crate::sound) struct PulseSweepChannel {
 impl PulseSweepChannel {
     pub fn new() -> Self {
         Self {
-            sweep_register: 0,
-            length_pattern_register: 0,
-            volume_envelope_register: 0,
-            frequency_low_register: 0,
-            frequency_high_register: 0,
+            nr10: 0,
+            nr11: 0,
+            nr12: 0,
+            nr13: 0,
+            nr14: 0,
             volume: 0,
             duty_index: 0,
-            enabled: true,
+            enabled: false,
             duty_advance_countdown: 0,
             sweep_counter: 0,
-            active_envelope: true,
-            envelope_counter: 0,
+            volume_envelope_active: true,
+            volume_envelope_sweep_counter: 0,
             frame_step: 0,
             length_counter: 0,
             frame_counter: 0,
@@ -75,7 +75,7 @@ impl PulseSweepChannel {
     }
 
     pub fn get_volume(&self) -> f32 {
-        if self.duty_high() {
+        if self.enabled && self.duty_high() {
             (self.volume as f32) / 15.0
         } else {
             0.0
@@ -83,7 +83,7 @@ impl PulseSweepChannel {
     }
 
     fn length_click(&mut self) {
-        if self.length_counter > 0 && self.counter_selection() {
+        if self.length_counter > 0 && self.stop_output_when_length_expires() {
             self.length_counter -= 1;
             if self.length_counter == 0 {
                 self.enabled = false;
@@ -92,18 +92,19 @@ impl PulseSweepChannel {
     }
 
     fn volume_envelope_click(&mut self) {
-        let sweeps = self.envelope_sweeps();
-        if sweeps == 0 || !self.active_envelope {
+        let sweeps = self.volume_envelope_sweeps();
+        if sweeps == 0 || !self.volume_envelope_active {
             return;
         }
-        self.envelope_counter += 1;
-        if self.envelope_counter == sweeps {
-            self.envelope_counter = 0;
-            let new_volume = self.volume as i8 + if self.incremental_envelope() { 1 } else { -1 };
+        self.volume_envelope_sweep_counter += 1;
+        if self.volume_envelope_sweep_counter == sweeps {
+            self.volume_envelope_sweep_counter = 0;
+            let incremental = self.incremental_volume_envelope();
+            let new_volume = self.volume as i8 + if incremental { 1 } else { -1 };
             if (0..=15).contains(&new_volume) {
                 self.volume = new_volume as u8;
             } else {
-                self.active_envelope = false;
+                self.volume_envelope_active = false;
             }
         }
     }
@@ -144,7 +145,7 @@ impl PulseSweepChannel {
 
     /// Returns if the current duty index is at a high state
     fn duty_high(&self) -> bool {
-        let duty = self.length_pattern_register >> 6;
+        let duty = self.nr11 >> 6;
         let required_index_for_high = match duty {
             0 => 1,
             1 => 2,
@@ -156,72 +157,73 @@ impl PulseSweepChannel {
     }
 
     fn frequency(&self) -> u16 {
-        (((self.frequency_high_register & 0b111) as u16) << 8) | self.frequency_low_register as u16
+        (((self.nr14 & 0b111) as u16) << 8) | self.nr13 as u16
     }
 
     fn set_frequency(&mut self, freq: u16) {
-        self.frequency_low_register = freq as u8;
-        self.frequency_high_register &= 0b11111000 | ((freq >> 8) & 0b111) as u8;
+        self.nr13 = freq as u8;
+        self.nr14 &= 0b11111000 | ((freq >> 8) & 0b111) as u8;
     }
 
-    fn counter_selection(&self) -> bool {
-        (self.frequency_high_register >> 6 & 1) != 0
+    fn stop_output_when_length_expires(&self) -> bool {
+        (self.nr14 >> 6 & 1) == 1
     }
 
     fn restart(&mut self) {
         self.enabled = true;
-        self.active_envelope = true;
-        self.envelope_counter = 0;
+        self.volume = self.nr12 >> 4;
+        self.volume_envelope_active = true;
+        self.volume_envelope_sweep_counter = 0;
         self.sweep_counter = 0;
     }
 
     fn sweep_time(&self) -> u8 {
-        self.sweep_register & 0b01110000
+        self.nr10 & 0b01110000
     }
 
     fn incremental_sweep(&self) -> bool {
-        (self.sweep_register >> 3 & 1) == 0
+        (self.nr10 >> 3 & 1) == 0
     }
 
     fn sweep_shifts(&self) -> u8 {
-        self.sweep_register & 0b111
+        self.nr10 & 0b111
     }
 
-    fn incremental_envelope(&self) -> bool {
-        (self.volume_envelope_register >> 3 & 1) != 0
+    fn incremental_volume_envelope(&self) -> bool {
+        (self.nr12 >> 3 & 1) == 1
     }
 
-    fn envelope_sweeps(&self) -> u8 {
-        self.volume_envelope_register & 0b111
+    fn volume_envelope_sweeps(&self) -> u8 {
+        self.nr12 & 0b111
     }
 
     pub fn read_byte(&self, addr: u16) -> u8 {
         match addr {
-            0xff10 => self.sweep_register,
-            0xff11 => self.length_pattern_register,
-            0xff12 => self.volume_envelope_register,
-            0xff13 => self.frequency_low_register,
-            0xff14 => self.frequency_high_register,
+            0xff10 => self.nr10,
+            0xff11 => self.nr11,
+            0xff12 => self.nr12,
+            0xff13 => self.nr13,
+            0xff14 => self.nr14,
             _ => unreachable!(),
         }
     }
 
     pub fn write_byte(&mut self, addr: u16, value: u8) {
         match addr {
-            0xff10 => self.sweep_register = value,
+            0xff10 => self.nr10 = value,
             0xff11 => {
-                self.length_pattern_register = value;
+                self.nr11 = value;
                 self.length_counter = value & 0x1f;
             }
             0xff12 => {
-                self.volume_envelope_register = value;
+                self.nr12 = value;
                 self.volume = value >> 4;
-                self.envelope_counter = 0;
+                self.volume_envelope_sweep_counter = 0;
             }
-            0xff13 => self.frequency_low_register = value,
+            0xff13 => self.nr13 = value,
             0xff14 => {
-                self.frequency_high_register = value;
-                if (value >> 7 & 1) != 0 {
+                self.nr14 = value;
+                if (value >> 7 & 1) == 1 {
                     self.restart();
                 }
             }
