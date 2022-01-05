@@ -109,6 +109,7 @@ fn main() -> Result<(), String> {
 
     let mut canvas = window
         .into_canvas()
+        .present_vsync()
         .build()
         .map_err(|e| format!("{:?}", e))?;
 
