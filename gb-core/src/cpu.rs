@@ -7043,20 +7043,32 @@ mod tests {
     use std::rc::Rc;
 
     use crate::cartridge::Cartridge;
+    use crate::irq::Irq;
     use crate::joypad::JoyPad;
     use crate::mmu::Mmu;
     use crate::ppu::Ppu;
+    use crate::sound::Apu;
 
     use super::Cpu;
 
     #[test]
     fn push_pop() {
+        let _ = env_logger::builder().is_test(true).try_init();
+
         let mock_game = [0u8; 0];
-        let ppu = Rc::new(RefCell::new(Ppu::new()));
-        let joypad = Rc::new(RefCell::new(JoyPad::new()));
+        let irq = Rc::new(RefCell::new(Irq::new()));
+        let ppu = Rc::new(RefCell::new(Ppu::new(Rc::clone(&irq))));
+        let joypad = Rc::new(RefCell::new(JoyPad::new(Rc::clone(&irq))));
         let cartridge = Cartridge::no_boot(&mock_game);
-        let mmu = Rc::new(RefCell::new(Mmu::new(ppu, joypad, cartridge)));
-        let mut cpu = Cpu::new(mmu);
+        let apu = Rc::new(RefCell::new(Apu::new()));
+        let mmu = Rc::new(RefCell::new(Mmu::new(
+            apu,
+            Rc::clone(&irq),
+            ppu,
+            joypad,
+            cartridge,
+        )));
+        let mut cpu = Cpu::new(irq, mmu);
         cpu.registers.set_sp(0xfffe);
 
         let values = vec![0, 1, 2, 3, 4, 5];
